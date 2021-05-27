@@ -1,33 +1,39 @@
 import cv2
+import torch
 import numpy as np
 import random 
 from copy import deepcopy
 
-scale = 20
+scale = 50
 
 class Simulator:
 
-    def __init__(self, size, robot_num):
+    def __init__(self, size, robot_num, static=None):
         self.canvas = np.ones(size, np.uint8)*255
         self.robot = dict()
         self.target = dict()
         self.size = size
-        self.generate_map(robot_num, size)
-        self.colours = self.assign_colour(robot_num*2)
+        if static != None:
+            self.robot, self.target = static
+        self.colours = self.assign_colour(robot_num*3)
+        self.generate_map(robot_num, size)    
         cv2.namedWindow("Factory")
-        cv2.resizeWindow('Factory', tuple(np.array(list(size)[:2])+np.array([100,100])))
+        cv2.resizeWindow('Factory', tuple(np.array(list(size)[:2])+np.array([500,200])))
     
     def generate_map(self, robot_num, size):
-        assert size[0]>robot_num *30 and size[1]>robot_num*30
-        for i in range(size[0]//scale+1):
-            cv2.line(self.canvas, (scale*i,0), (scale*i,size[1]-1), (0,0,0))
-        for i in range(size[1]//scale+1):
-            cv2.line(self.canvas, (0,i*scale), (size[0]-1,i*scale), (0,0,0))
-        x = random.sample(range(0, size[0]//scale), 3*robot_num)
-        y = random.sample(range(0, size[1]//scale), 3*robot_num)
+        assert size[0]>robot_num *scale*3 and size[1]>robot_num*scale*3
+        for i in range(1,size[0]//scale):
+            cv2.line(self.canvas, (scale*i,scale), (scale*i,size[1]-scale), (0,0,0))
+        for i in range(1,size[1]//scale):
+            cv2.line(self.canvas, (scale,i*scale), (size[0]-scale,i*scale), (0,0,0))
+        if len(self.robot) == 0:
+            x = random.sample(range(1, size[0]//scale), 3*robot_num)
+            y = random.sample(range(1, size[1]//scale), 3*robot_num)
+            for i in range(robot_num):
+                self.robot[i] = (x[i],y[i],-1)
+                self.target[i] = (x[i+robot_num], y[i+robot_num], x[i+2*robot_num], y[i+2*robot_num])
         for i in range(robot_num):
-            self.robot[i] = (x[i],y[i])
-            self.target[i] = (x[i+robot_num], y[i+robot_num], x[i+2*robot_num], y[i+2*robot_num])         
+            self.draw_target(self.canvas, np.array(self.target[i][2:])*scale, self.colours[i+len(self.robot)], 5)       
 
     @staticmethod
     def assign_colour(num):
@@ -41,21 +47,70 @@ class Simulator:
     
     @staticmethod
     def draw_target(frame, point, color, thick):
-        point1 = np.array(point)-np.array([0.5,0.5])
-        point2 = np.array(point)+np.array([0.5,0.5])
-        point3 = np.array(point)+np.array([0.5,-0.5])
-        point4 = np.array(point)-np.array([0.5,-0.5])
+        point1 = np.array(point)-np.array([scale//3,scale//3])
+        point2 = np.array(point)+np.array([scale//3,scale//3])
+        point3 = np.array(point)+np.array([scale//3,-scale//3])
+        point4 = np.array(point)-np.array([scale//3,-scale//3])
+        cv2.line(frame, tuple(point1), tuple(point2), color, thick)
+        cv2.line(frame, tuple(point3), tuple(point4), color, thick)
 
-    def show(self):
+
+    def show(self, wait=True):
         frame = deepcopy(self.canvas)
-        # for id_, pos in self.robot.items():
-        #     cv2.circle(frame, pos, 1, self.colours[id_], 1)
-        #     cv2.rectangle(frame, np.array(self.target[id_][:2])-np.array([0.5,0.5]), np.array(self.target[id_][:2])+np.array([0.5,0.5]), self.colours[id_+len(self.robot)])
-            # draw_target(frame, self.target[id_][2:], self.colours[id_+len(self.robot)], 1)
-        cv2.resizeWindow('Factory', tuple(np.array(list(self.size)[:2])+np.array([100,100])))
+        for id_, pos in self.robot.items():
+            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[0], -1)
+        for id_, pos in self.target.items():
+            cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1)     
         cv2.imshow("Factory",frame)
-        cv2.waitKey(0)
+        if wait:
+            cv2.waitKey(0)
+        else:
+            cv2.waitKey(1)
+    
+    def step(self):
+        pass
+
+    def crash_check(self):
+        for id_, pos in self.robot.items():
+            for id2_, pos2 in self.robot.items():
+                if id_ > id2_:
+                    continue
+                if (pos[0]-pos2[1])**2 + (pos[1]-pos2[1])**2 < 1:
+                    return True
+        return False
+    
+    def carry_check(self):
+        for id_, pos in self.robot.items():
+            if pos[2] == -1:
+                continue
+            for id2_, pos2 in self.target.items():
+                if (pos[0]-pos2[1])**2 + (pos[1]-pos2[1])**2 < 1:
+                    pos[2] = id2_
+                    break
+
+    def start(self, path):
+        try:
+            i = 0
+            while True:
+                for id_ in path:
+                    self.robot[id_] = tuple(path[id_][i], )
+                if self.crash_check():
+                    frame = np.ones(self.size, np.uint8)*255
+                    cv2.putText(frame, "Crash", (self.size[0]//2, self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                    cv2.imshow("Factory",frame)
+                    cv2.waitKey(0)
+                    break
+                self.carry_check()
+                for i in self.robot:
+                    if self.robot[i] >= 0:
+                        self.target[self.robot[i]] = tuple([self.robot[i][0], self.robot[i][1], self.target[self.robot[i]][2], self.target[self.robot[i]][3]])
+        except Exception:
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
-    env = Simulator((241,241,3),3)
+    env = Simulator((601,601,3),3)
+    # static_origin = [{0:(1,1,-1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
+    # env = Simulator((601,601,3),3,static_origin)
     env.show()
