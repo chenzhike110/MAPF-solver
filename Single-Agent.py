@@ -4,9 +4,10 @@ from a_star import AStarPlanner
 
 if __name__ == "__main__":
     # two agent plan seperately
-    agent_num = 5
+    agent_num = 40
     env = Simulator((601,601,3),agent_num)
     start, target =  env.information()
+    env.show()
     # set boundary
     ox, oy = [], []
     for i in range(-1, 600//scale+2):

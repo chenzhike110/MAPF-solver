@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import random 
 from copy import deepcopy
 import imageio
 
@@ -30,17 +29,16 @@ class Simulator:
         """
         generate random map to increase the complexity
         """
-        assert size[0]>robot_num *scale*3 and size[1]>robot_num*scale*3
+        assert size[0]*size[1]>robot_num *scale*3
         for i in range(1,size[0]//scale):
             cv2.line(self.canvas, (scale*i,scale), (scale*i,size[1]-scale), (0,0,0))
         for i in range(1,size[1]//scale):
             cv2.line(self.canvas, (scale,i*scale), (size[0]-scale,i*scale), (0,0,0))
         if len(self.robot) == 0:
-            x = random.sample(range(1, size[0]//scale), 3*robot_num)
-            y = random.sample(range(1, size[1]//scale), 3*robot_num)
+            pos = np.random.randint(1,size[0]//scale, size=(3*robot_num,2))
             for i in range(robot_num):
-                self.robot[i] = (x[i],y[i],-1)
-                self.target[i] = (x[i+robot_num], y[i+robot_num], x[i+2*robot_num], y[i+2*robot_num])
+                self.robot[i] = (pos[i][0],pos[i][1],-1)
+                self.target[i] = (pos[i+robot_num][0], pos[i+robot_num][1], pos[i+2*robot_num][0], pos[i+2*robot_num][1])
         for i in range(robot_num):
             self.draw_target(self.canvas, np.array(self.target[i][2:])*scale, self.colours[i+len(self.robot)], 5)       
 
