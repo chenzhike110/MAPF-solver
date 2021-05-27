@@ -1,14 +1,18 @@
 import cv2
-import torch
 import numpy as np
 import random 
 from copy import deepcopy
 
-scale = 50
+scale = 35
 
 class Simulator:
 
     def __init__(self, size, robot_num, static=None):
+        """
+        Initialize simulator multi agent path finding
+        robot: {index:(x,y,carry_index)}
+        target: {index}:(box_x,box_y,target_x,target_y)
+        """
         self.canvas = np.ones(size, np.uint8)*255
         self.robot = dict()
         self.target = dict()
@@ -21,6 +25,9 @@ class Simulator:
         cv2.resizeWindow('Factory', tuple(np.array(list(size)[:2])+np.array([500,200])))
     
     def generate_map(self, robot_num, size):
+        """
+        generate random map to increase the complexity
+        """
         assert size[0]>robot_num *scale*3 and size[1]>robot_num*scale*3
         for i in range(1,size[0]//scale):
             cv2.line(self.canvas, (scale*i,scale), (scale*i,size[1]-scale), (0,0,0))
@@ -57,60 +64,92 @@ class Simulator:
 
     def show(self, wait=True):
         frame = deepcopy(self.canvas)
-        for id_, pos in self.robot.items():
-            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[0], -1)
         for id_, pos in self.target.items():
             cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1)     
+        for id_, pos in self.robot.items():
+            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[0], -1)
         cv2.imshow("Factory",frame)
         if wait:
             cv2.waitKey(0)
         else:
-            cv2.waitKey(1)
+            cv2.waitKey(100)
     
     def step(self):
         pass
 
     def crash_check(self):
+        """
+        check if there are any collision
+        """
         for id_, pos in self.robot.items():
             for id2_, pos2 in self.robot.items():
-                if id_ > id2_:
+                if id_ >= id2_:
                     continue
-                if (pos[0]-pos2[1])**2 + (pos[1]-pos2[1])**2 < 1:
+                if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
                     return True
         return False
     
     def carry_check(self):
+        """
+        check if the robot carry the box
+        """
         for id_, pos in self.robot.items():
-            if pos[2] == -1:
+            if pos[2] != -1:
                 continue
             for id2_, pos2 in self.target.items():
-                if (pos[0]-pos2[1])**2 + (pos[1]-pos2[1])**2 < 1:
-                    pos[2] = id2_
+                if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
+                    self.robot[id_] = tuple(np.append(np.array(self.robot[id_])[:2], id2_))
                     break
+    
+    def information(self):
+        return self.robot, self.target
 
     def start(self, path):
         try:
             i = 0
             while True:
                 for id_ in path:
-                    self.robot[id_] = tuple(path[id_][i], )
+                    self.robot[id_] = tuple(np.append(np.array(path[id_][i]),self.robot[id_][2]))
                 if self.crash_check():
                     frame = np.ones(self.size, np.uint8)*255
-                    cv2.putText(frame, "Crash", (self.size[0]//2, self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                    cv2.putText(frame, "Crash", (self.size[0]//2-int(2.5*scale), self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 255), 2)
                     cv2.imshow("Factory",frame)
                     cv2.waitKey(0)
                     break
                 self.carry_check()
-                for i in self.robot:
-                    if self.robot[i] >= 0:
-                        self.target[self.robot[i]] = tuple([self.robot[i][0], self.robot[i][1], self.target[self.robot[i]][2], self.target[self.robot[i]][3]])
-        except Exception:
+                for j in self.robot:
+                    if self.robot[j][2] >= 0:
+                        self.target[self.robot[j][2]] = tuple([self.robot[j][0], self.robot[j][1], self.target[self.robot[j][2]][2], self.target[self.robot[j][2]][3]])
+                self.show(False)
+                i += 1
+        except Exception as err:
+            print(err)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    env = Simulator((601,601,3),3)
-    # static_origin = [{0:(1,1,-1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
-    # env = Simulator((601,601,3),3,static_origin)
-    env.show()
+    # random initialize
+    env1 = Simulator((601,601,3),5)
+
+    # given state
+    static_origin = [{0:(1,1,-1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
+    env2 = Simulator((601,601,3),3,static_origin)
+
+    # display
+    # env2.show()
+
+    # get start and target
+    print(env2.information())
+
+    # given a path and show
+    static_origin = [{0:(1,1,-1)},{0:(1,4,2,6)}]
+    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
+    env = Simulator((601,601,3),1,static_origin)
+    # env.start(path)
+
+    # check collision
+    static_origin = [{0:(1,1,-1),1:(1,3,-1)},{0:(1,4,2,6),1:(10,8,9,7)}]
+    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
+    env3 = Simulator((601,601,3),2,static_origin)
+    env3.start(path)
