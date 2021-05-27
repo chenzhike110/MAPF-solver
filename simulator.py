@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import random 
 from copy import deepcopy
+import imageio
 
 scale = 35
 
@@ -17,6 +18,7 @@ class Simulator:
         self.robot = dict()
         self.target = dict()
         self.size = size
+        self.frames = []
         if static != None:
             self.robot, self.target = static
         self.colours = self.assign_colour(robot_num*3)
@@ -62,7 +64,7 @@ class Simulator:
         cv2.line(frame, tuple(point3), tuple(point4), color, thick)
 
 
-    def show(self, wait=True):
+    def show(self, wait=True, save=False):
         frame = deepcopy(self.canvas)
         for id_, pos in self.target.items():
             cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1)     
@@ -73,7 +75,9 @@ class Simulator:
             cv2.waitKey(0)
         else:
             cv2.waitKey(100)
-    
+        if save:
+            self.frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
     def step(self):
         pass
 
@@ -104,28 +108,35 @@ class Simulator:
     def information(self):
         return self.robot, self.target
 
-    def start(self, path):
+    def start(self, path, save_gif=False):
         try:
             i = 0
             while True:
                 for id_ in path:
+                    if i >= len(path[id_]):
+                        continue
                     self.robot[id_] = tuple(np.append(np.array(path[id_][i]),self.robot[id_][2]))
                 if self.crash_check():
                     frame = np.ones(self.size, np.uint8)*255
                     cv2.putText(frame, "Crash", (self.size[0]//2-int(2.5*scale), self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 255), 2)
                     cv2.imshow("Factory",frame)
-                    cv2.waitKey(0)
                     break
                 self.carry_check()
                 for j in self.robot:
                     if self.robot[j][2] >= 0:
                         self.target[self.robot[j][2]] = tuple([self.robot[j][0], self.robot[j][1], self.target[self.robot[j][2]][2], self.target[self.robot[j][2]][3]])
-                self.show(False)
+                self.show(False, save_gif)
                 i += 1
+                if i >= max([len(i) for i in path.values()]):
+                    break
         except Exception as err:
             print(err)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+        if save_gif:
+            with imageio.get_writer("Seperate_Astar.gif", mode="I") as writer:
+                for idx, frame in enumerate(self.frames):
+                    writer.append_data(frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
