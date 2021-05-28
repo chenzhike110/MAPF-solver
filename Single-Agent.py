@@ -4,7 +4,7 @@ from a_star import AStarPlanner
 
 if __name__ == "__main__":
     # two agent plan seperately
-    agent_num = 40
+    agent_num = 5
     env = Simulator((601,601,3),agent_num)
     start, target =  env.information()
     env.show()
@@ -27,4 +27,4 @@ if __name__ == "__main__":
     path = planner.get_path(0, start[0][:2], target[0][:2], target[0][2:])
     for i in range(1,agent_num):
         path.update(planner.get_path(i, start[i][:2], target[i][:2], target[i][2:]))
-    env.start(path, True)
+    env.start(path, "Seperate_A*.gif")

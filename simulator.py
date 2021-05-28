@@ -62,18 +62,18 @@ class Simulator:
         cv2.line(frame, tuple(point3), tuple(point4), color, thick)
 
 
-    def show(self, wait=True, save=False):
+    def show(self, wait=True, save=None):
         frame = deepcopy(self.canvas)
         for id_, pos in self.target.items():
             cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1)     
         for id_, pos in self.robot.items():
-            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[0], -1)
+            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[id_], -1)
         cv2.imshow("Factory",frame)
         if wait:
             cv2.waitKey(0)
         else:
             cv2.waitKey(100)
-        if save:
+        if save != None:
             self.frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
     def step(self):
@@ -106,13 +106,14 @@ class Simulator:
     def information(self):
         return self.robot, self.target
 
-    def start(self, path, save_gif=False):
+    def start(self, path, save_gif=None, wait=False):
         try:
             i = 0
             while True:
                 for id_ in path:
                     if i >= len(path[id_]):
                         continue
+                    cv2.line(self.canvas, tuple(np.array(self.robot[id_][:2])*scale), tuple(np.array(path[id_][i])*scale), self.colours[id_],5)
                     self.robot[id_] = tuple(np.append(np.array(path[id_][i]),self.robot[id_][2]))
                 if self.crash_check():
                     frame = np.ones(self.size, np.uint8)*255
@@ -123,14 +124,14 @@ class Simulator:
                 for j in self.robot:
                     if self.robot[j][2] >= 0:
                         self.target[self.robot[j][2]] = tuple([self.robot[j][0], self.robot[j][1], self.target[self.robot[j][2]][2], self.target[self.robot[j][2]][3]])
-                self.show(False, save_gif)
+                self.show(wait, save_gif)
                 i += 1
                 if i >= max([len(i) for i in path.values()]):
                     break
         except Exception as err:
             print(err)
-        if save_gif:
-            with imageio.get_writer("Seperate_Astar.gif", mode="I") as writer:
+        if save_gif!=None:
+            with imageio.get_writer(save_gif, mode="I") as writer:
                 for idx, frame in enumerate(self.frames):
                     writer.append_data(frame)
         cv2.waitKey(0)
