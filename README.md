@@ -15,6 +15,10 @@
 - Seperate A* algorithem
 
   ![Seperate_Astar](./image/Seperate_Astar.gif)
+  
+- Confict-based Search
+
+  ![CBS-solver](./image/CBS-solver.gif)
 
 #### Learning method
 

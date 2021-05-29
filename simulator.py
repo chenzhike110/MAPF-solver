@@ -36,8 +36,16 @@ class Simulator:
             cv2.line(self.canvas, (scale,i*scale), (size[0]-scale,i*scale), (0,0,0))
         if len(self.robot) == 0:
             pos = np.random.randint(1,size[0]//scale, size=(3*robot_num,2))
+            pos = set([tuple(i) for i in pos])
+            while len(pos) < 3*robot_num:
+                temp = np.random.randint(1,size[0]//scale, size=(3*robot_num - len(pos),2))
+                b = set([tuple(i) for i in temp])
+                for i in b:
+                    if i not in pos:
+                        pos.add(i)
+            pos = list(pos)
             for i in range(robot_num):
-                self.robot[i] = (pos[i][0],pos[i][1],-1)
+                self.robot[i] = (pos[i][0],pos[i][1],i)
                 self.target[i] = (pos[i+robot_num][0], pos[i+robot_num][1], pos[i+2*robot_num][0], pos[i+2*robot_num][1])
         for i in range(robot_num):
             self.draw_target(self.canvas, np.array(self.target[i][2:])*scale, self.colours[i+len(self.robot)], 5)       
@@ -114,16 +122,20 @@ class Simulator:
                     if i >= len(path[id_]):
                         continue
                     cv2.line(self.canvas, tuple(np.array(self.robot[id_][:2])*scale), tuple(np.array(path[id_][i])*scale), self.colours[id_],5)
-                    self.robot[id_] = tuple(np.append(np.array(path[id_][i]),self.robot[id_][2]))
+                    if self.robot[id_][2] >= 0:
+                        if self.target[self.robot[id_][2]][:2]==self.robot[id_][:2]:
+                            self.robot[id_] = tuple(np.append(np.array(path[id_][i]),self.robot[id_][2]))
+                            self.target[self.robot[id_][2]] = tuple([self.robot[id_][0], self.robot[id_][1], self.target[self.robot[id_][2]][2], self.target[self.robot[id_][2]][3]])
+                        else:
+                            self.robot[id_] = tuple(np.append(np.array(path[id_][i]),self.robot[id_][2]))
+                    else:
+                        self.robot[id_] = tuple(np.append(np.array(path[id_][i]),self.robot[id_][2]))
+                        self.carry_check()
                 if self.crash_check():
                     frame = np.ones(self.size, np.uint8)*255
                     cv2.putText(frame, "Crash", (self.size[0]//2-int(2.5*scale), self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 255), 2)
                     cv2.imshow("Factory",frame)
-                    break
-                self.carry_check()
-                for j in self.robot:
-                    if self.robot[j][2] >= 0:
-                        self.target[self.robot[j][2]] = tuple([self.robot[j][0], self.robot[j][1], self.target[self.robot[j][2]][2], self.target[self.robot[j][2]][3]])
+                    break    
                 self.show(wait, save_gif)
                 i += 1
                 if i >= max([len(i) for i in path.values()]):
@@ -131,7 +143,7 @@ class Simulator:
         except Exception as err:
             print(err)
         if save_gif!=None:
-            with imageio.get_writer(save_gif, mode="I") as writer:
+            with imageio.get_writer("./image/"+save_gif, mode="I") as writer:
                 for idx, frame in enumerate(self.frames):
                     writer.append_data(frame)
         cv2.waitKey(0)
