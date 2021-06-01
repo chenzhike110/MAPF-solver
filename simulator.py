@@ -1,7 +1,9 @@
+from os import stat
 import cv2
 import numpy as np
 from copy import deepcopy
 import imageio
+from matplotlib import pyplot as plt
 
 scale = 35
 
@@ -31,9 +33,9 @@ class Simulator:
         """
         assert size[0]*size[1]>robot_num *scale*3
         for i in range(1,size[0]//scale):
-            cv2.line(self.canvas, (scale*i,scale), (scale*i,size[1]-scale), (0,0,0))
+            cv2.line(self.canvas, (scale*i,scale), (scale*i,(size[1]//scale-1)*scale), (0,0,0))
         for i in range(1,size[1]//scale):
-            cv2.line(self.canvas, (scale,i*scale), (size[0]-scale,i*scale), (0,0,0))
+            cv2.line(self.canvas, (scale,i*scale), ((size[0]//scale-1)*scale,i*scale), (0,0,0))
         if len(self.robot) == 0:
             pos = np.random.randint(1,size[0]//scale, size=(3*robot_num,2))
             pos = set([tuple(i) for i in pos])
@@ -75,7 +77,7 @@ class Simulator:
         for id_, pos in self.target.items():
             cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1)     
         for id_, pos in self.robot.items():
-            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[id_], -1)
+            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//4, self.colours[id_], -1)
         cv2.imshow("Factory",frame)
         if wait:
             cv2.waitKey(0)
@@ -83,6 +85,30 @@ class Simulator:
             cv2.waitKey(100)
         if save != None:
             self.frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    
+    def get_state_map(self, index, show=False):
+        state = np.zeros((self.size[0]//scale, self.size[1]//scale))
+        for id_, pos in self.robot.items():
+            if id_ == index:
+                state[pos[0]-1][pos[1]-1] = 1
+            else:
+                state[pos[0]-1][pos[1]-1] = -1
+        for id2_, pos2 in self.target.items():
+            if id2_ == self.robot[index][2]:
+                if state[pos2[0]-1][pos2[1]-1] == 0:
+                    state[pos2[0]-1][pos2[1]-1] = 2
+                else:
+                    state[pos2[2]-1][pos2[3]-1] = 2
+        state = np.rot90(state, 1)
+        state = state[1:,:-1]
+        # state = state[::-1]
+        if show:
+            plt.figure()
+            plt.imshow(state)
+            plt.xlim((-0.5,len(state[0])-0.5))
+            plt.ylim((-0.5,len(state)-0.5))
+            plt.show()
+        return np.array([state])
 
     def step(self):
         pass
@@ -155,20 +181,20 @@ if __name__ == "__main__":
     env1 = Simulator((601,601,3),5)
 
     # given state
-    static_origin = [{0:(1,1,-1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
+    static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
     env2 = Simulator((601,601,3),3,static_origin)
-
+    env2.show()
+    state = env2.get_state_map(0, True)
     # display
-    # env2.show()
 
     # get start and target
     print(env2.information())
 
     # given a path and show
-    static_origin = [{0:(1,1,-1)},{0:(1,4,2,6)}]
+    static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
     path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
     env = Simulator((601,601,3),1,static_origin)
-    # env.start(path)
+    env.start(path)
 
     # check collision
     static_origin = [{0:(1,1,-1),1:(1,3,-1)},{0:(1,4,2,6),1:(10,8,9,7)}]
