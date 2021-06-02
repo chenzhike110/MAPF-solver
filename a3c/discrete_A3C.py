@@ -5,17 +5,19 @@ import torch.functional as F
 import torch.multiprocessing as mp
 
 class net(nn.Module):
-    def __init__(self, img_size, a_dim) -> None:
+    def __init__(self, a_dim) -> None:
         super().__init__()
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.pi1 = nn.Linear(2304, 128)
+        self.pi1 = nn.Linear(9216, 128)
         self.pi2 = nn.Linear(128, a_dim)
-        self.v1 = nn.Linear(2304, 128)
+        self.v1 = nn.Linear(9216, 128)
         self.v2 = nn.Linear(128, 1)
+        self.softmax = nn.Softmax(dim=1)
         self.distribution = torch.distributions.Categorical
     
     def forward(self, x):
+        x = torch.Tensor(x)
         x = self.conv1(x)
         x = self.conv2(x)
         x = torch.flatten(x, 1)
@@ -28,9 +30,9 @@ class net(nn.Module):
     def choose_action(self, s):
         self.eval()
         logits, _ = self.forward(s)
-        prob = F.softmax(logits, dim=1).data
+        prob = self.softmax(logits)
         m = self.distribution(prob)
-        return m.sample().numpy()[0]
+        return m.sample().numpy()
 
     def loss_func(self, s, a, v_t):
         self.train()
@@ -51,12 +53,12 @@ class Worker(mp.Process):
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
-        # self.lnet = net(N_S, N_A)           # local network
-        # self.env = gym.make('CartPole-v0').unwrapped
+        self.lnet = net(5)           # local network
+        self.env = opt.env
 
 if __name__ == "__main__":
     b = np.ones((1,10,10))
     print(b[0])
-    a = [np.ones((1,10,10)) for i in range(8)]
-    model = net(10,5)
-    print(model(torch.Tensor(a)))
+    a = torch.Tensor([np.ones((1,10,10)) for i in range(8)])
+    model = net(5)
+    print(model.choose_action(a))

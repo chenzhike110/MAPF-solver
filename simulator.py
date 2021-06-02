@@ -4,6 +4,7 @@ import numpy as np
 from copy import deepcopy
 import imageio
 from matplotlib import pyplot as plt
+from numpy.core.fromnumeric import size
 
 scale = 35
 
@@ -19,6 +20,7 @@ class Simulator:
         self.robot = dict()
         self.target = dict()
         self.size = size
+        self.robot_num = robot_num
         self.frames = []
         if static != None:
             self.robot, self.target = static
@@ -90,6 +92,7 @@ class Simulator:
         state = np.zeros((self.size[0]//scale, self.size[1]//scale))
         for id_, pos in self.robot.items():
             if id_ == index:
+                start = pos
                 state[pos[0]-1][pos[1]-1] = 1
             else:
                 state[pos[0]-1][pos[1]-1] = -1
@@ -97,8 +100,11 @@ class Simulator:
             if id2_ == self.robot[index][2]:
                 if state[pos2[0]-1][pos2[1]-1] == 0:
                     state[pos2[0]-1][pos2[1]-1] = 2
+                    end = (pos2[0], pos2[1])
                 else:
                     state[pos2[2]-1][pos2[3]-1] = 2
+                    end = (pos2[2], pos2[3])
+        distance_reward = abs(start[0] - end[0]) + abs(start[1] - end[1])
         state = np.rot90(state, 1)
         state = state[1:,:-1]
         # state = state[::-1]
@@ -108,16 +114,55 @@ class Simulator:
             plt.xlim((-0.5,len(state[0])-0.5))
             plt.ylim((-0.5,len(state)-0.5))
             plt.show()
-        return np.array([state])
+        return np.array([state]), 1.0/distance_reward
+    
+    @staticmethod
+    def out_of_map(pos, size):
+        if pos[0] <= 0 or pos[0] > size[0]//scale or pos[1] <= 0 or pos[1] > size[1]//scale:
+            return True
+        return False
 
-    def step(self):
-        pass
+    def step(self, action):
+        path = {}
+        reward = -1.0
+        done = False
+        states = []
+        for id_, pos in self.robot.items():
+            if action[id_] == 0:
+                path[id_] = [(pos[0], pos[1])]
+            elif action[id_] == 1:
+                path[id_] = [(pos[0], pos[1]+1)]
+            elif action[id_] == 2:
+                path[id_] = [(pos[0]-1, pos[1])]
+            elif action[id_] == 3:
+                path[id_] = [(pos[0]+1, pos[1])]
+            elif action[id_] == 4:
+                path[id_] = [(pos[0], pos[1]-1)]
+            if self.out_of_map(path[id_][0], self.size):
+                reward -= 10
+                done = True
+        self.start(path)
+        for id_ in self.robot.keys():
+            state, distance_reward = self.get_state_map(id_)
+            states.append(state)
+            reward += distance_reward
+        return reward, np.array(states), done, {}
+    
+    def reset(self):
+        self.robot = {}
+        states = []
+        self.generate_map(self.robot_num, self.size)
+        for id_ in self.robot.keys():
+            state, distance_reward = self.get_state_map(id_)
+            states.append(state)
+        return np.array(states)
 
     def crash_check(self):
         """
         check if there are any collision
         """
         for id_, pos in self.robot.items():
+            # out of map
             for id2_, pos2 in self.robot.items():
                 if id_ >= id2_:
                     continue
@@ -145,7 +190,7 @@ class Simulator:
             i = 0
             while True:
                 for id_ in path:
-                    if i >= len(path[id_]):
+                    if i >= len(path[id_]) or np.math.hypot(path[id_][i][0]-self.robot[id_][0], path[id_][i][1]-self.robot[id_][1]) > 1.4:
                         continue
                     cv2.line(self.canvas, tuple(np.array(self.robot[id_][:2])*scale), tuple(np.array(path[id_][i])*scale), self.colours[id_],5)
                     if self.robot[id_][2] >= 0:
@@ -172,7 +217,7 @@ class Simulator:
             with imageio.get_writer("./image/"+save_gif, mode="I") as writer:
                 for idx, frame in enumerate(self.frames):
                     writer.append_data(frame)
-        cv2.waitKey(0)
+        cv2.waitKey(100)
         cv2.destroyAllWindows()
 
 
@@ -184,7 +229,7 @@ if __name__ == "__main__":
     static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
     env2 = Simulator((601,601,3),3,static_origin)
     env2.show()
-    state = env2.get_state_map(0, True)
+    state, _ = env2.get_state_map(0, True)
     # display
 
     # get start and target
@@ -197,7 +242,7 @@ if __name__ == "__main__":
     env.start(path)
 
     # check collision
-    static_origin = [{0:(1,1,-1),1:(1,3,-1)},{0:(1,4,2,6),1:(10,8,9,7)}]
-    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
+    static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
+    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
     env3 = Simulator((601,601,3),2,static_origin)
     env3.start(path)
