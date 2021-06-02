@@ -19,15 +19,18 @@ class Simulator:
         self.canvas = np.ones(size, np.uint8)*255
         self.robot = dict()
         self.target = dict()
+        self.robot_carry = dict()
         self.size = size
         self.robot_num = robot_num
         self.frames = []
+        self.steps = 0
         if static != None:
             self.robot, self.target = static
         self.colours = self.assign_colour(robot_num*3)
+        self.crash = []
         self.generate_map(robot_num, size)    
-        cv2.namedWindow("Factory")
-        cv2.resizeWindow('Factory', tuple(np.array(list(size)[:2])+np.array([500,200])))
+        # cv2.namedWindow("Factory")
+        # cv2.resizeWindow('Factory', tuple(np.array(list(size)[:2])+np.array([500,200])))
     
     def generate_map(self, robot_num, size):
         """
@@ -52,7 +55,8 @@ class Simulator:
                 self.robot[i] = (pos[i][0],pos[i][1],i)
                 self.target[i] = (pos[i+robot_num][0], pos[i+robot_num][1], pos[i+2*robot_num][0], pos[i+2*robot_num][1])
         for i in range(robot_num):
-            self.draw_target(self.canvas, np.array(self.target[i][2:])*scale, self.colours[i+len(self.robot)], 5)       
+            self.draw_target(self.canvas, np.array(self.target[i][2:])*scale, self.colours[i+len(self.robot)], 5)
+            self.robot_carry[i] = False       
 
     @staticmethod
     def assign_colour(num):
@@ -89,42 +93,49 @@ class Simulator:
             self.frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     
     def get_state_map(self, index, show=False):
-        state = np.zeros((self.size[0]//scale, self.size[1]//scale))
+        state = np.zeros((self.size[0]//scale+1, self.size[1]//scale+1))
         for id_, pos in self.robot.items():
             if id_ == index:
                 start = pos
-                state[pos[0]-1][pos[1]-1] = 1
+                state[pos[0]][pos[1]] = -1
             else:
-                state[pos[0]-1][pos[1]-1] = -1
+                state[pos[0]][pos[1]] = -3
         for id2_, pos2 in self.target.items():
             if id2_ == self.robot[index][2]:
-                if state[pos2[0]-1][pos2[1]-1] == 0:
-                    state[pos2[0]-1][pos2[1]-1] = 2
+                if not self.robot_carry[id_]:
+                    if state[pos2[0]][pos2[1]] == -1:
+                        self.robot_carry[id_] = True
+                    state[pos2[0]][pos2[1]] += 4
                     end = (pos2[0], pos2[1])
                 else:
-                    state[pos2[2]-1][pos2[3]-1] = 2
+                    state[pos2[2]][pos2[3]] += 4
                     end = (pos2[2], pos2[3])
         distance_reward = abs(start[0] - end[0]) + abs(start[1] - end[1])
         state = np.rot90(state, 1)
-        state = state[1:,:-1]
+        # state = state[1:,:-1]
         # state = state[::-1]
         if show:
+            self.show()
             plt.figure()
             plt.imshow(state)
+            for i in range(len(state)):
+                for j in range(len(state[0])):
+                    c = str(state[i][j])
+                    plt.text(j, i, c, va='center', ha='center')
             plt.xlim((-0.5,len(state[0])-0.5))
             plt.ylim((-0.5,len(state)-0.5))
             plt.show()
-        return np.array([state]), 1.0/distance_reward
+        return np.array([state]), 1.0/(distance_reward+0.1)
     
     @staticmethod
     def out_of_map(pos, size):
-        if pos[0] <= 0 or pos[0] > size[0]//scale or pos[1] <= 0 or pos[1] > size[1]//scale:
+        if pos[0] <= 0 or pos[0] >= size[0]//scale or pos[1] <= 0 or pos[1] >= size[1]//scale:
             return True
         return False
 
     def step(self, action):
         path = {}
-        reward = -1.0
+        reward = np.array([-1.0 for i in action])
         done = False
         states = []
         for id_, pos in self.robot.items():
@@ -139,21 +150,37 @@ class Simulator:
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
             if self.out_of_map(path[id_][0], self.size):
-                reward -= 10
+                reward[id_] -= 10
                 done = True
+        self.steps += 1
+        if self.steps > 50:
+            done = True
         self.start(path)
+        if len(self.crash) > 0:
+            for i in self.crash:
+                reward[i[0]] -= 10
+                reward[i[1]] -= 10
+            done = True
         for id_ in self.robot.keys():
-            state, distance_reward = self.get_state_map(id_)
+            state, distance_reward = self.get_state_map(id_, False)
             states.append(state)
-            reward += distance_reward
+            reward[id_] += distance_reward
+            if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1:
+                done = True
         return reward, np.array(states), done, {}
     
     def reset(self):
+        self.crash = []
+        self.canvas = np.ones(self.size, np.uint8)*255
         self.robot = {}
+        self.robot_carry = {}
+        self.target = {}
+        self.steps = 0
         states = []
         self.generate_map(self.robot_num, self.size)
         for id_ in self.robot.keys():
             state, distance_reward = self.get_state_map(id_)
+            self.robot_carry[id_] = False
             states.append(state)
         return np.array(states)
 
@@ -167,6 +194,7 @@ class Simulator:
                 if id_ >= id2_:
                     continue
                 if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
+                    self.crash.append((id_,id2_))
                     return True
         return False
     
@@ -217,32 +245,56 @@ class Simulator:
             with imageio.get_writer("./image/"+save_gif, mode="I") as writer:
                 for idx, frame in enumerate(self.frames):
                     writer.append_data(frame)
-        cv2.waitKey(100)
-        cv2.destroyAllWindows()
+        cv2.waitKey(20)
+        # cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
     # random initialize
-    env1 = Simulator((601,601,3),5)
+    # env1 = Simulator((601,601,3),5)
 
-    # given state
-    static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
-    env2 = Simulator((601,601,3),3,static_origin)
-    env2.show()
-    state, _ = env2.get_state_map(0, True)
-    # display
+    # # given state
+    # static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
+    # env2 = Simulator((601,601,3),3,static_origin)
+    # env2.show()
+    # state, _ = env2.get_state_map(0, True)
+    # # display
 
-    # get start and target
-    print(env2.information())
+    # # get start and target
+    # print(env2.information())
 
-    # given a path and show
-    static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
-    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
-    env = Simulator((601,601,3),1,static_origin)
-    env.start(path)
+    # # given a path and show
+    # static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
+    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
+    # env = Simulator((601,601,3),1,static_origin)
+    # env.start(path)
 
-    # check collision
+    # # check collision
+    # static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
+    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
+    # env3 = Simulator((601,601,3),2,static_origin)
+    # env3.start(path)
+
+    # check state map
+    # static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
+    # action = [1,1,1,2,3,3]
+    # env = Simulator((601,601,3),1,static_origin)
+    # for i in action:
+    #     reward, states, done, _ = env.step([i])
+    #     print("reward:",reward)
+    #     if done:
+    #         print("done")
+    #         break
+    
+    # check state map2
     static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
-    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
-    env3 = Simulator((601,601,3),2,static_origin)
-    env3.start(path)
+    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
+    action = [[1,1],[1,3],[1,1],[3,1],[1,0],[1,0]]
+    env = Simulator((601,601,3),2,static_origin)
+    for i in action:
+        reward, states, done, _ = env.step(i)
+        print("reward:",reward)
+        if done:
+            print("done")
+            break
+

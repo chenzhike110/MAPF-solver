@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     agents1 = []
     agents2 = []
-    agent_num = 10
+    agent_num = 8
     env = Simulator((601,601,3),agent_num)
     env.show()
     start, target =  env.information()
@@ -36,4 +36,4 @@ if __name__ == "__main__":
     for i in start.keys():
         path_final[i] = [(j['x'],j['y']) for j in solution1[i]]
         path_final[i] += [(j['x'],j['y']) for j in solution2[i]]
-    env.start(path_final, None, False)
+    env.start(path_final, None, True)
