@@ -70,7 +70,9 @@ class Worker(mp.Process):
         self.gnet, self.opt = gnet, opt
         self.lnet = net(5)           # local network
         self.opt = opt
-        self.env = Simulator((601,601,3),max(int(self.name[1:])%8, 1))
+        # self.robot_num = max(int(self.name[1:])%8, 1)
+        self.robot_num = 1
+        self.env = Simulator((601,601,3),self.robot_num)
     
     def run(self):
         total_step = 1
@@ -78,7 +80,7 @@ class Worker(mp.Process):
         while self.g_ep.value < MAX_ITER:
             state = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
-            ep_r = np.array([0. for i in range(max(int(self.name[1:])%8, 1))])
+            ep_r = np.array([0. for i in range(self.robot_num)])
             while True:
                 buffer_s.append(state)
                 action = self.lnet.choose_action(state, random)
