@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.functional as F
 import torch.multiprocessing as mp
 
-from .utils import v_wrap, weight_init, normalized_columns_initializer, push_and_pull, record
+from .utils import v_wrap, weights_init, normalized_columns_initializer, push_and_pull, record
 
 UPDATE_ITER = 200
 MAX_ITER = 30000
@@ -19,10 +19,10 @@ class net(nn.Module):
         self.conv1 = nn.Conv2d(1, 32, 3, stride=2, padding=1)
         self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+        self.pi1 = nn.Linear(288, 256)
+        self.v1 = nn.Linear(288, 256)
         self.critic_linear = nn.Linear(256, 1)
         self.actor_linear = nn.Linear(256, a_dim)
-        self.v2 = nn.Linear(64, 1)
         self.softmax = nn.Softmax(dim=1)
         self.distribution = torch.distributions.Categorical
     
@@ -33,9 +33,9 @@ class net(nn.Module):
         x = self.conv3(x)
         x = torch.flatten(x, 1)
         pi1 = torch.tanh(self.pi1(x))
-        logits = self.pi2(pi1)
+        logits = self.actor_linear(pi1)
         v1 = torch.tanh(self.v1(x))
-        values = self.v2(v1)
+        values = self.critic_linear(v1)
         return logits, values
     
     def choose_action(self, s, random=1):
