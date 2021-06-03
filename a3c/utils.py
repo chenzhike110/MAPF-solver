@@ -18,6 +18,7 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
         v_s_ = np.array([0. for i in range(len(s_))])
     else:
         _, v_s_ = lnet.forward(v_wrap(s_))
+        v_s_ = v_s_.detach().numpy()
     
     buffer_v_target = []
     for r in br[::-1]:

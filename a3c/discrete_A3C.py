@@ -95,7 +95,7 @@ class Worker(mp.Process):
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
-                        if total_step > MAX_ITER/2:
+                        if self.g_ep.value > MAX_ITER/2:
                             random = False
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name, int(loss), total_step)
                         break

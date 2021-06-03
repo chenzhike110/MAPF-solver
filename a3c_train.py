@@ -12,7 +12,7 @@ if __name__ == "__main__":
     gnet = net(5)
     gnet.share_memory()
     writer = SummaryWriter('./a3c/Logs')
-    opt = SharedAdam(gnet.parameters(), lr=1e-4, betas=(0.92,0.999))
+    opt = SharedAdam(gnet.parameters(), lr=1e-3, betas=(0.92,0.999))
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
     workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count()//2)]
     # workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, 1)]
