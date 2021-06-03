@@ -14,16 +14,19 @@ if __name__ == "__main__":
     writer = SummaryWriter('./a3c/Logs')
     opt = SharedAdam(gnet.parameters(), lr=1e-4, betas=(0.92,0.999))
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count()//2)]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count()//3)]
     # workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, 1)]
     [w.start() for w in workers]
     start = time.time()
+    success = []
     while True:
         try:
-            r, loss, name, total_step = res_queue.get()
+            r, loss, name, total_step, ep_r = res_queue.get()
             if r is not None:
                 writer.add_scalar("loss/loss_"+name, loss, global_step=total_step, walltime=None)
                 writer.add_scalar("mean_reward", r, global_step=time.time()-start, walltime=None)
+                success.extend(list(ep_r > 15))
+                writer.add_scalar("success_rate", sum[success[-100:]]/100, global_step=time.time()-start, walltime=None)
         except:
             break
     [w.join() for w in workers]  

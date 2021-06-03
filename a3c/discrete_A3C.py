@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.functional as F
 import torch.multiprocessing as mp
 
-from .utils import v_wrap, weight_init, push_and_pull, record
+from .utils import v_wrap, weight_init, normalized_columns_initializer, push_and_pull, record
 
 UPDATE_ITER = 200
 MAX_ITER = 30000
@@ -16,12 +16,12 @@ GAMMA = 0.9
 class net(nn.Module):
     def __init__(self, a_dim) -> None:
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 2, 5, 1)
-        self.conv2 = nn.Conv2d(2, 4, 5, 1)
-        self.conv3 = nn.Conv2d(4, 8, 5, 1)
-        self.pi1 = nn.Linear(288, 64)
-        self.pi2 = nn.Linear(64, a_dim)
-        self.v1 = nn.Linear(288, 64)
+        self.conv1 = nn.Conv2d(1, 32, 3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+        self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
+        self.critic_linear = nn.Linear(256, 1)
+        self.actor_linear = nn.Linear(256, a_dim)
         self.v2 = nn.Linear(64, 1)
         self.softmax = nn.Softmax(dim=1)
         self.distribution = torch.distributions.Categorical

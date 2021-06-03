@@ -3,10 +3,27 @@ import torch
 import numpy as np
 from torch.nn.modules import loss
 
-def weight_init(layers):
-    for layer in layers:
-        nn.init.normal_(layer.weight, mean=0, std=0.1)
-        nn.init.constant_(layer.bias, 0.)
+def normalized_columns_initializer(weights, std=1.0):
+    out = torch.randn(weights.size())
+    out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True))
+    return out
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        weight_shape = list(m.weight.data.size())
+        fan_in = np.prod(weight_shape[1:4])
+        fan_out = np.prod(weight_shape[2:4]) * weight_shape[0]
+        w_bound = np.sqrt(6. / (fan_in + fan_out))
+        m.weight.data.uniform_(-w_bound, w_bound)
+        m.bias.data.fill_(0)
+    elif classname.find('Linear') != -1:
+        weight_shape = list(m.weight.data.size())
+        fan_in = weight_shape[1]
+        fan_out = weight_shape[0]
+        w_bound = np.sqrt(6. / (fan_in + fan_out))
+        m.weight.data.uniform_(-w_bound, w_bound)
+        m.bias.data.fill_(0)
 
 def v_wrap(np_array, dtype=np.float32):
     if np_array.dtype != dtype:
@@ -50,7 +67,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, name, loss, step):
             global_ep_r.value = ep_r.mean()
         else:
             global_ep_r.value = global_ep_r.value * 0.9 + ep_r.mean() * 0.1
-    res_queue.put((global_ep_r.value, loss, name, step))
+    res_queue.put((global_ep_r.value, loss, name, step, ep_r))
     print(
         name,
         "Ep:", global_ep.value,
