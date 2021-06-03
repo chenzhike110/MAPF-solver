@@ -125,7 +125,7 @@ class Simulator:
             plt.xlim((-0.5,len(state[0])-0.5))
             plt.ylim((-0.5,len(state)-0.5))
             plt.show()
-        return np.array([state]), 1.0/(distance_reward+0.05)
+        return np.array([state]), 1.0/(distance_reward+0.04)
     
     @staticmethod
     def out_of_map(pos, size):
@@ -141,7 +141,7 @@ class Simulator:
         for id_, pos in self.robot.items():
             if action[id_] == 0:
                 path[id_] = [(pos[0], pos[1])]
-                reward[id_] -= 3
+                reward[id_] -= 2
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
             elif action[id_] == 2:
@@ -154,7 +154,7 @@ class Simulator:
                 reward[id_] -= 10
                 done = True
         self.steps += 1
-        if self.steps > 50:
+        if self.steps > 100:
             done = True
         self.start(path)
         if len(self.crash) > 0:

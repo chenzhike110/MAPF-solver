@@ -17,18 +17,18 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
     if done:
         v_s_ = np.array([0. for i in range(len(s_))])
     else:
-        v_s_ = lnet.forward(v_wrap(s_))[-1].data.numpy()[0,0]
+        _, v_s_ = lnet.forward(v_wrap(s_))
     
     buffer_v_target = []
     for r in br[::-1]:
         v_s_ = r +  v_s_ * gamma
         buffer_v_target.append(v_s_)
-    buffer_v_target.reverse()
-
+    buffer_v_target = np.array(buffer_v_target).flatten('F').reshape((-1,1))
+    ba =  np.array(ba).flatten('F').reshape((-1,1))
     loss = lnet.loss_func(
         v_wrap(np.vstack(bs)),
-        v_wrap(np.array(ba), dtype=np.int64) if ba[0].dtype == np.int64 else v_wrap(np.vstack(ba)),
-        v_wrap(np.array(buffer_v_target)[:,None])
+        v_wrap(np.vstack(ba)),
+        v_wrap(np.vstack(buffer_v_target))
     )
 
     opt.zero_grad()
@@ -48,7 +48,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, name, loss, step):
         if global_ep_r.value == 0.:
             global_ep_r.value = ep_r.mean()
         else:
-            global_ep_r.value = global_ep_r.value * 0.99 + ep_r.mean() * 0.01
+            global_ep_r.value = global_ep_r.value * 0.9 + ep_r.mean() * 0.1
     res_queue.put((global_ep_r.value, loss, name, step))
     print(
         name,

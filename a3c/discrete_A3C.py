@@ -16,12 +16,12 @@ GAMMA = 0.9
 class net(nn.Module):
     def __init__(self, a_dim) -> None:
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 8, 3, 1)
-        self.conv2 = nn.Conv2d(8, 16, 3, 1)
-        self.pi1 = nn.Linear(3136, 128)
-        self.pi2 = nn.Linear(128, a_dim)
-        self.v1 = nn.Linear(3136, 128)
-        self.v2 = nn.Linear(128, 1)
+        self.conv1 = nn.Conv2d(1, 2, 3, 1)
+        self.conv2 = nn.Conv2d(2, 4, 3, 1)
+        self.pi1 = nn.Linear(784, 64)
+        self.pi2 = nn.Linear(64, a_dim)
+        self.v1 = nn.Linear(784, 64)
+        self.v2 = nn.Linear(64, 1)
         self.softmax = nn.Softmax(dim=1)
         self.distribution = torch.distributions.Categorical
     
@@ -55,6 +55,8 @@ class net(nn.Module):
         
         probs = self.softmax(logits)
         m = self.distribution(probs)
+        temp1 = m.log_prob(a)
+        temp2 = td.detach().squeeze()
         exp_v = m.log_prob(a) * td.detach().squeeze()
         a_loss = -exp_v
         total_loss = (c_loss + a_loss).mean()
@@ -68,21 +70,22 @@ class Worker(mp.Process):
         self.gnet, self.opt = gnet, opt
         self.lnet = net(5)           # local network
         self.opt = opt
-        self.env = Simulator((601,601,3),1)
+        self.env = Simulator((601,601,3),max(int(self.name[1:])%8, 1))
     
     def run(self):
         total_step = 1
+        random = True
         while self.g_ep.value < MAX_ITER:
             state = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = np.array([0. for i in range(max(int(self.name[1:])%8, 1))])
             while True:
-                action = self.lnet.choose_action(state)
+                buffer_s.append(state)
+                action = self.lnet.choose_action(state, random)
                 r, state, done, _ = self.env.step(action)
                 ep_r += r
                 
                 buffer_a.append(action)
-                buffer_s.append(state)
                 buffer_r.append(r)
 
                 if total_step % UPDATE_ITER == 0 or done:
@@ -90,6 +93,8 @@ class Worker(mp.Process):
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
+                        if total_step > MAX_ITER/2:
+                            random = False
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name, int(loss), total_step)
                         break
                 
