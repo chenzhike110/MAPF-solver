@@ -22,7 +22,7 @@ if __name__ == "__main__":
         try:
             r, loss, name, total_step = res_queue.get()
             if r is not None:
-                writer.add_scalar("loss_"+name, loss, global_step=total_step, walltime=None)
+                writer.add_scalar("loss/loss_"+name, loss, global_step=total_step, walltime=None)
                 writer.add_scalar("mean_reward", r, global_step=time.time()-start, walltime=None)
         except:
             break
