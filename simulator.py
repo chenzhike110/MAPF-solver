@@ -134,7 +134,7 @@ class Simulator:
     def step(self, action):
         path = {}
         reward = np.array([-1.0 for i in action])
-        done = False
+        done = [False for i in action]
         states = []
         end = {}
         for id_, pos in self.robot.items():
@@ -148,47 +148,48 @@ class Simulator:
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
                 if end[id_][1] - pos[1] > 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 2.0
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 2:
                 path[id_] = [(pos[0]-1, pos[1])]
                 if end[id_][0] - pos[0] < 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 2.0
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 3:
                 path[id_] = [(pos[0]+1, pos[1])]
                 if end[id_][0] - pos[0] > 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 2.0
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
                 if end[id_][1] - pos[1] < 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 2.0
                 else:
                      reward[id_] -= 0.5
             if self.out_of_map(path[id_][0], self.size):
-                reward[id_] -= 10
-                done = True
+                reward[id_] -= 20
+                done[id_] = True
         self.steps += 1
         if self.steps > 100:
-            done = True
+            done[id_] = True
         self.start(path)
         if len(self.crash) > 0:
             for i in self.crash:
                 reward[i[0]] -= 10
                 reward[i[1]] -= 10
-            done = True
+                done[i[0]] = True
+                done[i[1]] = True
         for id_ in self.robot.keys():
             state = self.get_state_map(id_, False)
             states.append(state)
             if np.math.hypot(self.robot[id_][0]-end[id_][0], self.robot[id_][1]-end[id_][1])<1:
-                reward[id_] += 20
+                reward[id_] += 35
             if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1 and np.math.hypot(self.target[id_][0]-self.target[id_][2], self.target[id_][1]-self.target[id_][3]) < 1:
-                reward[id_] += 20
-                done = True
+                reward[id_] += 35
+                done[id_] = True
         return reward, np.array(states), done, {}
     
     def reset(self):

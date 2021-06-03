@@ -1,6 +1,9 @@
 import numpy as np
 import random
 
+from numpy.core.defchararray import index
+from numpy.core.fromnumeric import size
+
 class linear_schedule:
     def __init__(self, total_timesteps, final_ratio, init_ratio=1.0):
         self.total_timesteps = total_timesteps
@@ -13,31 +16,45 @@ class linear_schedule:
     
 def select_action(action_value, explore_eps):
     action_value = action_value.cpu().numpy().squeeze()
-    action = np.argmax(action_value) if random.random() > explore_eps else np.random.randint(action_value.shape[0])
+    if random.random() > explore_eps:
+        try:
+            action = np.argmax(action_value, axis=1)  
+        except:
+            action = np.argmax(action_value, axis=0)  
+    else:
+        try:
+            action = np.random.randint(0,5,(1,action_value.shape[1]))
+        except:
+            action = int(np.random.randint(0,5,size=(1)))
     return action
 
 class reward_recoder:
-    def __init__(self, history_length=100):
+    def __init__(self, num, history_length=1000):
         self.history_length = history_length
-        self.buffer = [0.0]
+        self.buffer = [[0.0] for _ in range(num)]
         self._episode_length = 1
     
-    def add_reward(self, reward):
-        self.buffer[-1] += reward
+    def add_reward(self, reward, index):
+        self.buffer[index][-1] += reward
     
     def start_new_episode(self):
-        if self.get_length > self.history_length:
-            self.buffer.pop(0)
-        self.buffer.append(0.0)
+        for i in range(len(self.buffer)):
+            if self.get_length > self.history_length:
+                self.buffer[i].pop(0)
+            self.buffer[i].append(0.0)
         self._episode_length += 1
     
     @property
     def get_length(self):
-        return len(self.buffer)
+        return max(len(i) for i in self.buffer)
     
     @property
     def mean(self):
-        return np.mean(self.buffer)
+        return np.mean(np.array(self.buffer))
+    
+    @property
+    def latest(self):
+        return [i[-1] for i in self.buffer]
     
     @property
     def num_episodes(self):

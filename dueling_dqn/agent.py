@@ -4,9 +4,11 @@ import numpy as np
 import torch
 import datetime
 
+from torch.utils.tensorboard import SummaryWriter 
 from dueling_dqn.utils import linear_schedule, replay_buffer, reward_recoder, select_action
 from .model import net
 
+writer = SummaryWriter('./dueling_dqn/logs')
 
 class dqn_agent:
     def __init__(self, env, args):
@@ -32,30 +34,40 @@ class dqn_agent:
             os.mkdir(self.model_path)
         
     def learn(self):
-        episode_reward = reward_recoder()
+        episode_reward = reward_recoder(self.env.robot_num)
         obs = self.env.reset()
         td_loss = 0
         for timestep in range(int(self.args.total_timesteps)):
             explore_eps = self.exploration_schedule.get_value(timestep)
             with torch.no_grad():
-                obs_tensor = self._get_tensor(obs)
+                obs_tensor = self._get_tensors(obs)
                 action_value = self.net(obs_tensor)
             action = select_action(action_value, explore_eps)
-            reward, obs_, done, _ = self.env.step([action])
+            if self.env.robot_num == 1:
+                action = [action]
+            reward, obs_, done, _ = self.env.step(action)
 
-            self.buffer.add(obs, action, reward, obs_, float(done))
+            for i in range(len(obs)):
+                self.buffer.add(obs[i], action[i], reward[i], obs_[i], float(done[i]))
+                episode_reward.add_reward(reward[i],i)
             obs = obs_
-            episode_reward.add_reward(reward)
             
+            done = np.array(done).any()
             if done:
                 obs = np.array(self.env.reset())
-                episode_reward.start_new_episode()
+                writer.add_scalar("latest reward",episode_reward.latest[0], global_step=episode_reward.num_episodes)
+                writer.add_scalar("random exploration",explore_eps,global_step=episode_reward.num_episodes)
+                writer.add_scalar("mean reward", episode_reward.mean, global_step=episode_reward.num_episodes, walltime=None)
+                episode_reward.start_new_episode() 
             
             if timestep > self.args.learning_starts and timestep % self.args.train_freq == 0:
-                batch_sample = self.buffer.sample(self.args.bathc_size)
+                batch_sample = self.buffer.sample(self.args.bath_size)
                 td_loss = self._update_network(batch_sample)
-            
+                writer.add_scalar("loss", td_loss, global_step=timestep, walltime=None)
+                
             if timestep > self.args.learning_starts and timestep % self.args.target_network_update_freq == 0:
+                for param, target_param in zip(self.net.parameters(), self.target_net.parameters()):
+                    target_param.data.copy_(self.args.tau * param.data + (1 - self.args.tau) * target_param.data)
                 self.target_net.load_state_dict(self.net.state_dict())
             
             if done and episode_reward.num_episodes % self.args.display_interval == 0:
@@ -99,7 +111,7 @@ class dqn_agent:
         self.optimizer.step()
         return loss.item()
     
-    def _get_tensor(self, obs):
+    def _get_tensors(self, obs):
         # if obs.ndim == 3:
         #     obs = np.transpose(obs, (2, 0, 1))
         #     obs = np.expand_dims(obs, 0)
