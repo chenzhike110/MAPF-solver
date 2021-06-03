@@ -16,11 +16,12 @@ GAMMA = 0.9
 class net(nn.Module):
     def __init__(self, a_dim) -> None:
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 2, 3, 1)
-        self.conv2 = nn.Conv2d(2, 4, 3, 1)
-        self.pi1 = nn.Linear(784, 64)
+        self.conv1 = nn.Conv2d(1, 2, 5, 1)
+        self.conv2 = nn.Conv2d(2, 4, 5, 1)
+        self.conv3 = nn.Conv2d(4, 8, 5, 1)
+        self.pi1 = nn.Linear(288, 64)
         self.pi2 = nn.Linear(64, a_dim)
-        self.v1 = nn.Linear(784, 64)
+        self.v1 = nn.Linear(288, 64)
         self.v2 = nn.Linear(64, 1)
         self.softmax = nn.Softmax(dim=1)
         self.distribution = torch.distributions.Categorical
@@ -29,6 +30,7 @@ class net(nn.Module):
         x = torch.Tensor(x)
         x = self.conv1(x)
         x = self.conv2(x)
+        x = self.conv3(x)
         x = torch.flatten(x, 1)
         pi1 = torch.tanh(self.pi1(x))
         logits = self.pi2(pi1)
@@ -36,10 +38,15 @@ class net(nn.Module):
         values = self.v2(v1)
         return logits, values
     
-    def choose_action(self, s, random=True):
+    def choose_action(self, s, random=1):
         self.eval()
         logits, _ = self.forward(s)
-        if random:
+        if random > 0 and random < 1:   
+            prob = self.softmax(logits)
+            prob += torch.rand(torch.Size([1,5]), out=None)*random
+            m = self.distribution(prob)
+            action = m.sample().numpy()
+        elif random == 0:
             prob = self.softmax(logits)
             m = self.distribution(prob)
             action = m.sample().numpy()
@@ -76,7 +83,7 @@ class Worker(mp.Process):
     
     def run(self):
         total_step = 1
-        random = True
+        random = 1.0
         while self.g_ep.value < MAX_ITER:
             state = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
@@ -95,8 +102,12 @@ class Worker(mp.Process):
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
-                        if self.g_ep.value > MAX_ITER/2:
-                            random = False
+                        if self.g_ep.value <= MAX_ITER/3:
+                            random = random*0.9999
+                        if self.g_ep.value > MAX_ITER/3:
+                            random = 0
+                        elif self.g_ep.value > MAX_ITER*2/3:
+                            random = -1
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name, int(loss), total_step)
                         break
                 

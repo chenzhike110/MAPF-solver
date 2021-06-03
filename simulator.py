@@ -96,7 +96,6 @@ class Simulator:
         state = np.zeros((self.size[0]//scale+1, self.size[1]//scale+1))
         for id_, pos in self.robot.items():
             if id_ == index:
-                start = pos
                 state[pos[0]][pos[1]] = -1
             else:
                 state[pos[0]][pos[1]] = -3
@@ -106,11 +105,8 @@ class Simulator:
                     if state[pos2[0]][pos2[1]] == -1:
                         self.robot_carry[id_] = True
                     state[pos2[0]][pos2[1]] += 4
-                    end = (pos2[0], pos2[1])
                 else:
                     state[pos2[2]][pos2[3]] += 4
-                    end = (pos2[2], pos2[3])
-        distance_reward = abs(start[0] - end[0]) + abs(start[1] - end[1])
         state = np.rot90(state, 1)
         # state = state[1:,:-1]
         # state = state[::-1]
@@ -125,7 +121,7 @@ class Simulator:
             plt.xlim((-0.5,len(state[0])-0.5))
             plt.ylim((-0.5,len(state)-0.5))
             plt.show()
-        return np.array([state]), 1.0/(distance_reward+0.04)
+        return np.array([state])
     
     @staticmethod
     def out_of_map(pos, size):
@@ -139,17 +135,29 @@ class Simulator:
         done = False
         states = []
         for id_, pos in self.robot.items():
+            pos2 = self.target[pos[2]]
+            end = (pos2[0], pos2[1])
+            if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
+                end = (pos2[2], pos2[3])
             if action[id_] == 0:
                 path[id_] = [(pos[0], pos[1])]
                 reward[id_] -= 2
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
+                if end[1] - pos[1] > 0:
+                    reward[id_] += 2
             elif action[id_] == 2:
                 path[id_] = [(pos[0]-1, pos[1])]
+                if end[0] - pos[0] < 0:
+                    reward[id_] += 2
             elif action[id_] == 3:
                 path[id_] = [(pos[0]+1, pos[1])]
+                if end[0] - pos[0] > 0:
+                    reward[id_] += 2
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
+                if end[1] - pos[1] < 0:
+                    reward[id_] += 2
             if self.out_of_map(path[id_][0], self.size):
                 reward[id_] -= 10
                 done = True
@@ -163,9 +171,8 @@ class Simulator:
                 reward[i[1]] -= 10
             done = True
         for id_ in self.robot.keys():
-            state, distance_reward = self.get_state_map(id_, False)
+            state = self.get_state_map(id_, False)
             states.append(state)
-            reward[id_] += distance_reward
             if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1:
                 done = True
         return reward, np.array(states), done, {}
@@ -180,7 +187,7 @@ class Simulator:
         states = []
         self.generate_map(self.robot_num, self.size)
         for id_ in self.robot.keys():
-            state, distance_reward = self.get_state_map(id_)
+            state = self.get_state_map(id_)
             self.robot_carry[id_] = False
             states.append(state)
         return np.array(states)
@@ -252,40 +259,40 @@ class Simulator:
 
 if __name__ == "__main__":
     # random initialize
-    # env1 = Simulator((601,601,3),5)
+    env1 = Simulator((601,601,3),5)
 
-    # # given state
-    # static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
-    # env2 = Simulator((601,601,3),3,static_origin)
-    # env2.show()
-    # state, _ = env2.get_state_map(0, True)
-    # # display
+    # given state
+    static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
+    env2 = Simulator((601,601,3),3,static_origin)
+    env2.show()
+    state = env2.get_state_map(0, True)
+    # display
 
-    # # get start and target
-    # print(env2.information())
+    # get start and target
+    print(env2.information())
 
-    # # given a path and show
-    # static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
-    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
-    # env = Simulator((601,601,3),1,static_origin)
-    # env.start(path)
+    # given a path and show
+    static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
+    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)]}
+    env = Simulator((601,601,3),1,static_origin)
+    env.start(path)
 
-    # # check collision
-    # static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
-    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
-    # env3 = Simulator((601,601,3),2,static_origin)
-    # env3.start(path)
+    # check collision
+    static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
+    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
+    env3 = Simulator((601,601,3),2,static_origin)
+    env3.start(path)
 
     # check state map
-    # static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
-    # action = [1,1,1,2,3,3]
-    # env = Simulator((601,601,3),1,static_origin)
-    # for i in action:
-    #     reward, states, done, _ = env.step([i])
-    #     print("reward:",reward)
-    #     if done:
-    #         print("done")
-    #         break
+    static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
+    action = [1,1,1,2,3,3]
+    env = Simulator((601,601,3),1,static_origin)
+    for i in action:
+        reward, states, done, _ = env.step([i])
+        print("reward:",reward)
+        if done:
+            print("done")
+            break
     
     # check state map2
     static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]

@@ -14,8 +14,8 @@ if __name__ == "__main__":
     writer = SummaryWriter('./a3c/Logs')
     opt = SharedAdam(gnet.parameters(), lr=1e-3, betas=(0.92,0.999))
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count()//2)]
-    # workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, 1)]
+    # workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count()//2)]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, 1)]
     [w.start() for w in workers]
     start = time.time()
     while True:
