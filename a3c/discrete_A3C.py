@@ -102,9 +102,9 @@ class Worker(mp.Process):
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
-                        if self.g_ep.value <= MAX_ITER/3:
-                            random = random*0.9999
-                        if self.g_ep.value > MAX_ITER/3:
+                        if self.g_ep.value <= MAX_ITER/4:
+                            random = random*0.999
+                        if self.g_ep.value > MAX_ITER/4:
                             random = 0
                         elif self.g_ep.value > MAX_ITER*2/3:
                             random = -1
