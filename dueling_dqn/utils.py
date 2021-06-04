@@ -57,6 +57,10 @@ class reward_recoder:
         return [i[-1] for i in self.buffer]
     
     @property
+    def success_rate(self):
+        return sum(np.array(self.buffer[0][-100:])>15)
+    
+    @property
     def num_episodes(self):
         return self._episode_length
 

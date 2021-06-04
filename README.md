@@ -20,5 +20,12 @@
 
   ![CBS-solver](./image/CBS-solver.gif)
 
+- Stupid-avoid
+
+  ![stupid_avoid](./image/stupid_avoid.gif)
+
 #### Learning method
+
+- A3C
+- Dueling Double DQN
 

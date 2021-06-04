@@ -68,12 +68,17 @@ class dqn_agent:
             if timestep > self.args.learning_starts and timestep % self.args.target_network_update_freq == 0:
                 for param, target_param in zip(self.net.parameters(), self.target_net.parameters()):
                     target_param.data.copy_(self.args.tau * param.data + (1 - self.args.tau) * target_param.data)
-                self.target_net.load_state_dict(self.net.state_dict())
+                # self.target_net.load_state_dict(self.net.state_dict())
             
             if done and episode_reward.num_episodes % self.args.display_interval == 0:
-                print('[{}] Frames: {}, Episode: {}, Mean: {:.3f}, Loss: {:.3f}'.format(datetime.now(), timestep, episode_reward.num_episodes, \
+                print('[{}] Frames: {}, Episode: {}, Mean: {:.3f}, Loss: {:.3f}'.format(datetime.datetime.now(), timestep, episode_reward.num_episodes, \
                         episode_reward.mean, td_loss))
-                torch.save(self.net.state_dict(), self.model_path + '/model.pt')
+                torch.save(self.net.state_dict(), self.model_path + '/model'+str(td_loss)+'.pt')
+    
+    def load_dict(self, path):
+        state_dict = torch.load(path)
+        self.net.load_state_dict(state_dict)
+        print("load successful")
     
     def _update_network(self, samples):
         obses, actions, rewards, obses_next, dones = samples

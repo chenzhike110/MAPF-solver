@@ -18,6 +18,7 @@ class Simulator:
         """
         self.canvas = np.ones(size, np.uint8)*255
         self.robot = dict()
+        self.robot_last_pos = dict()
         self.target = dict()
         self.robot_carry = dict()
         self.size = size
@@ -148,34 +149,34 @@ class Simulator:
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
                 if end[id_][1] - pos[1] > 0:
-                    reward[id_] += 2.0
+                    reward[id_] += 1.5
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 2:
                 path[id_] = [(pos[0]-1, pos[1])]
                 if end[id_][0] - pos[0] < 0:
-                    reward[id_] += 2.0
+                    reward[id_] += 1.5
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 3:
                 path[id_] = [(pos[0]+1, pos[1])]
                 if end[id_][0] - pos[0] > 0:
-                    reward[id_] += 2.0
+                    reward[id_] += 1.5
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
                 if end[id_][1] - pos[1] < 0:
-                    reward[id_] += 2.0
+                    reward[id_] += 1.5
                 else:
                      reward[id_] -= 0.5
             if self.out_of_map(path[id_][0], self.size):
                 reward[id_] -= 20
                 done[id_] = True
         self.steps += 1
-        if self.steps > 100:
+        if self.steps > 200:
             done[id_] = True
-        self.start(path)
+        self.start(path, None, False)
         if len(self.crash) > 0:
             for i in self.crash:
                 reward[i[0]] -= 10
@@ -212,11 +213,13 @@ class Simulator:
         check if there are any collision
         """
         for id_, pos in self.robot.items():
-            # out of map
+            lastmiddle1 = ((self.robot_last_pos[id_][0]+pos[0])/2, (self.robot_last_pos[id_][1]+pos[1])/2)
             for id2_, pos2 in self.robot.items():
                 if id_ >= id2_:
                     continue
-                if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
+                lastmiddle = ((self.robot_last_pos[id2_][0]+pos2[0])/2, (self.robot_last_pos[id2_][1]+pos2[1])/2)
+                # print(lastmiddle, lastmiddle1, np.math.hypot(lastmiddle1[0]-lastmiddle[0],lastmiddle1[1]-lastmiddle[1]))
+                if np.math.hypot(pos[0]-pos2[0], pos[1]-pos2[1]) < 1 or np.math.hypot(lastmiddle1[0]-lastmiddle[0],lastmiddle1[1]-lastmiddle[1])<=0.5:
                     self.crash.append((id_,id2_))
                     return True
         return False
@@ -240,6 +243,7 @@ class Simulator:
         try:
             i = 0
             while True:
+                self.robot_last_pos = self.robot.copy()
                 for id_ in path:
                     if i >= len(path[id_]) or np.math.hypot(path[id_][i][0]-self.robot[id_][0], path[id_][i][1]-self.robot[id_][1]) > 1.4:
                         continue
@@ -257,10 +261,12 @@ class Simulator:
                     frame = np.ones(self.size, np.uint8)*255
                     cv2.putText(frame, "Crash", (self.size[0]//2-int(2.5*scale), self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 255), 2)
                     cv2.imshow("Factory",frame)
+                    cv2.waitKey(0)
                     break    
                 self.show(wait, save_gif)
                 i += 1
                 if i >= max([len(i) for i in path.values()]):
+                    print("over")
                     break
         except Exception as err:
             print(err)
@@ -268,7 +274,7 @@ class Simulator:
             with imageio.get_writer("./image/"+save_gif, mode="I") as writer:
                 for idx, frame in enumerate(self.frames):
                     writer.append_data(frame)
-        cv2.waitKey(20)
+        cv2.waitKey(1)
         # cv2.destroyAllWindows()
 
 
@@ -292,11 +298,11 @@ if __name__ == "__main__":
     # env = Simulator((601,601,3),1,static_origin)
     # env.start(path)
 
-    # # check collision
+    # check collision
     # static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
-    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
+    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,3),(1,2)]}
     # env3 = Simulator((601,601,3),2,static_origin)
-    # env3.start(path)
+    # env3.start(path, None, True)
 
     # # check state map
     # static_origin = [{0:(1,1,0)},{0:(1,4,2,6)}]
@@ -313,12 +319,12 @@ if __name__ == "__main__":
     static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
     # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
     # action = [[1,1],[1,3],[1,1],[3,1],[1,0],[1,0]]
-    action = [[1,3],[1,3],[1,3],[3,1],[1,0],[1,0]]
+    action = [[1,3],[4,3],[1,3],[4,1],[1,0],[4,0]]
     env = Simulator((601,601,3),2,static_origin)
     for i in action:
         reward, states, done, _ = env.step(i)
         print("reward:",reward)
-        if done:
+        if np.array(done).any():
             print("done")
             break
 
