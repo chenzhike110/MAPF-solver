@@ -23,7 +23,7 @@ def select_action(action_value, explore_eps):
             action = np.argmax(action_value, axis=0)  
     else:
         try:
-            action = np.random.randint(0,5,(1,action_value.shape[1]))
+            action = np.random.randint(0,5,(action_value.shape[0]))
         except:
             action = int(np.random.randint(0,5,size=(1)))
     return action
@@ -50,7 +50,7 @@ class reward_recoder:
     
     @property
     def mean(self):
-        return np.mean(np.array(self.buffer))
+        return np.mean(np.array(self.buffer[0]))
     
     @property
     def latest(self):

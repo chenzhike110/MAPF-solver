@@ -99,7 +99,7 @@ class Simulator:
             if id_ == index:
                 state[pos[0]][pos[1]] = -1
             else:
-                state[pos[0]][pos[1]] = -3
+                state[pos[0]][pos[1]] -= -3
         for id2_, pos2 in self.target.items():
             if id2_ == self.robot[index][2]:
                 if not self.robot_carry[id_]:
@@ -179,8 +179,8 @@ class Simulator:
         self.start(path, None, False)
         if len(self.crash) > 0:
             for i in self.crash:
-                reward[i[0]] -= 10
-                reward[i[1]] -= 10
+                reward[i[0]] -= 20
+                reward[i[1]] -= 20
                 done[i[0]] = True
                 done[i[1]] = True
         for id_ in self.robot.keys():
@@ -261,12 +261,12 @@ class Simulator:
                     frame = np.ones(self.size, np.uint8)*255
                     cv2.putText(frame, "Crash", (self.size[0]//2-int(2.5*scale), self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 255), 2)
                     cv2.imshow("Factory",frame)
-                    cv2.waitKey(0)
+                    cv2.waitKey(1000)
                     break    
                 self.show(wait, save_gif)
                 i += 1
                 if i >= max([len(i) for i in path.values()]):
-                    print("over")
+                    # print("over")
                     break
         except Exception as err:
             print(err)

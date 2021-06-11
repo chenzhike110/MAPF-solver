@@ -15,10 +15,10 @@ def generate_path(pos, target):
         path.append((i,pos[1]))
     for i in getrange(pos[1],target[1]):
         path.append((target[0],i))
-    for i in getrange(target[0],target[2]):
-        path.append((i,target[1]))
     for i in getrange(target[1],target[3]):
-        path.append((target[2],i))
+        path.append((target[0],i))
+    for i in getrange(target[0],target[2]):
+        path.append((i,target[3]))
     return path
 
 def check_crash(pos, last_pos):
@@ -90,8 +90,10 @@ def deal_with_conflict(last_pos, pos, targetpos, crash_idx):
     best = pos
     best_score = -1000
     idx1, idx2 = crash_idx
-    for i in range(1,5):
+    for i in range(0,5):
         for j in range(4,-1,-1):
+            if i==0 and j==0:
+                continue
             pos[idx1] = get_next_pos(last_pos[idx1], i)
             pos[idx2] = get_next_pos(last_pos[idx2], j)
             if check_crash(last_pos, pos):
@@ -105,7 +107,7 @@ def deal_with_conflict(last_pos, pos, targetpos, crash_idx):
     return best
 
 if __name__ == "__main__":
-    robotnum = 15
+    robotnum = 8
     env = Simulator((601,601,3), robotnum)
     start, target = env.information()
     path = {}

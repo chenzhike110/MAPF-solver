@@ -6,7 +6,7 @@ from simulator import Simulator
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # env name
-    parser.add_argument("--env_name", default="MAPF", type=str)
+    parser.add_argument("--env_name", default="Multi-APF", type=str)
     # use cuda
     parser.add_argument("--cuda", default=True, type=bool)
     # replay buffer size
@@ -43,9 +43,9 @@ if __name__ == "__main__":
     parser.add_argument("--load_model", default=True, type=bool)
     args = parser.parse_args()
 
-    env = Simulator((601,601,3),1)
+    env = Simulator((601,601,3),2)
     model = dqn_agent(env, args)
     if args.load_model:
         model_path = os.path.join(args.save_dir, args.env_name)
-        model.load_dict(model_path+"/modeltd_loss.pt")
+        model.load_dict(model_path+"/model.pt")
     model.learn()
