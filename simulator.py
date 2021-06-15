@@ -4,7 +4,6 @@ import numpy as np
 from copy import deepcopy
 import imageio
 from matplotlib import pyplot as plt
-from numpy.core.fromnumeric import size
 
 scale = 35
 
@@ -188,9 +187,10 @@ class Simulator:
             states.append(state)
             if np.math.hypot(self.robot[id_][0]-end[id_][0], self.robot[id_][1]-end[id_][1])<1:
                 reward[id_] += 35
-            if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1 and np.math.hypot(self.target[id_][0]-self.target[id_][2], self.target[id_][1]-self.target[id_][3]) < 1:
-                reward[id_] += 35
-                done[id_] = True
+                done = True
+            # if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1 and np.math.hypot(self.target[id_][0]-self.target[id_][2], self.target[id_][1]-self.target[id_][3]) < 1:
+            #     reward[id_] += 35
+            #     done[id_] = True
         return reward, np.array(states), done, {}
     
     def reset(self):
