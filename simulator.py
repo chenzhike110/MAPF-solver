@@ -141,7 +141,7 @@ class Simulator:
 
     def step(self, action):
         path = {}
-        reward = np.array([-0.5 for i in action])
+        reward = np.array([-0.3 for i in action])
         done = [False for i in action]
         states = []
         end = {}
@@ -156,32 +156,32 @@ class Simulator:
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
                 if end[id_][1] - pos[1] > 0:
-                    reward[id_] += 0.2
+                    reward[id_] += 0.4
                 else:
                      reward[id_] -= 0.2
             elif action[id_] == 2:
                 path[id_] = [(pos[0]-1, pos[1])]
                 if end[id_][0] - pos[0] < 0:
-                    reward[id_] += 0.2
+                    reward[id_] += 0.4
                 else:
                      reward[id_] -= 0.2
             elif action[id_] == 3:
                 path[id_] = [(pos[0]+1, pos[1])]
                 if end[id_][0] - pos[0] > 0:
-                    reward[id_] += 0.2
+                    reward[id_] += 0.4
                 else:
                      reward[id_] -= 0.2
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
                 if end[id_][1] - pos[1] < 0:
-                    reward[id_] += 0.2
+                    reward[id_] += 0.4
                 else:
                      reward[id_] -= 0.2
             if self.out_of_map(path[id_][0], self.size):
                 reward[id_] -= 20
                 done[id_] = True
             if self.steps > 80:
-                reward[id_] -= 10
+                # reward[id_] -= 10
                 done[id_] = True
         self.steps += 1
         self.start(path, None, False)
@@ -194,7 +194,7 @@ class Simulator:
         for id_ in self.robot.keys():
             state = self.get_state_map(id_, False)
             states.append(state)
-            reward -= 0.025*(abs(self.robot[id_][0]-end[id_][0])+abs(self.robot[id_][1]-end[id_][1]))
+            # reward -= 0.025*(abs(self.robot[id_][0]-end[id_][0])+abs(self.robot[id_][1]-end[id_][1]))
             if np.math.hypot(self.robot[id_][0]-end[id_][0], self.robot[id_][1]-end[id_][1])<1:
                 reward[id_] += 30
                 done[id_] = True
