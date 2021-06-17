@@ -1,3 +1,5 @@
 __pycache__
 /a3c/Logs
 /dueling_dqn/logs
+.vscode
+*.pt

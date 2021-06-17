@@ -1,9 +1,10 @@
-import argparse
-import os
 from dueling_dqn.agent import dqn_agent
+import argparse
 from simulator import Simulator
+from torch.utils.tensorboard import SummaryWriter
 
-if __name__ =="__main__":
+# default `log_dir` is "runs" - we'll be more specific here
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # env name
     parser.add_argument("--env_name", default="MAPF", type=str)
@@ -13,9 +14,10 @@ if __name__ =="__main__":
     parser.add_argument("--load_model", default=False, type=bool)
     args = parser.parse_args()
 
-    env = Simulator((601,601,3),1)
+    env = Simulator((601,601,3),10)
+    states = env.reset()
     model = dqn_agent(env, args)
-    if args.load_model:
-        model_path = os.path.join(args.save_dir, args.env_name)
-        model.load_dict(model_path+"model71.96770477294922.pt")
-    model.go()
+    writer = SummaryWriter('runs/dueling_double_dqn')
+    writer.add_graph(model.net, model._get_tensors(states))
+    # writer.add_graph(model.target_net, model._get_tensors(states))
+    writer.close()

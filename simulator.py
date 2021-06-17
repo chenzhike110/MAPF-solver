@@ -80,10 +80,18 @@ class Simulator:
 
     def show(self, wait=True, save=None):
         frame = deepcopy(self.canvas)
-        for id_, pos in self.target.items():
-            cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1)     
+        font_scale = 2
+        font_size = 0.7
+        color = (255,255,255)
         for id_, pos in self.robot.items():
-            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//4, self.colours[id_], -1)
+            size, _ = cv2.getTextSize('{0}'.format(pos[-1]),cv2.FONT_HERSHEY_COMPLEX,font_size,font_scale)
+            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//2, self.colours[id_], -1)
+            cv2.putText(frame,'{0}'.format(pos[-1]),tuple([pos[0]*scale-size[0]//2, pos[1]*scale+size[1]//2]),cv2.FONT_HERSHEY_COMPLEX,font_size,color,font_scale)
+        for id_, pos in self.target.items():
+            size, _ = cv2.getTextSize('{0}'.format(id_),cv2.FONT_HERSHEY_COMPLEX,font_size,font_scale)
+            cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1) 
+            cv2.putText(frame,'{0}'.format(id_),tuple([self.target[id_][0]*scale-size[0]//2, self.target[id_][1]*scale+size[1]//2]),cv2.FONT_HERSHEY_COMPLEX,font_size,color,font_scale)
+        
         cv2.imshow("Factory",frame)
         if wait:
             cv2.waitKey(0)
@@ -113,7 +121,7 @@ class Simulator:
         # state = state[1:,:-1]
         # state = state[::-1]
         if show:
-            self.show()
+            # self.show()
             plt.figure()
             plt.imshow(state)
             for i in range(len(state)):
@@ -148,32 +156,33 @@ class Simulator:
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
                 if end[id_][1] - pos[1] > 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 0.5
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 2:
                 path[id_] = [(pos[0]-1, pos[1])]
                 if end[id_][0] - pos[0] < 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 0.5
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 3:
                 path[id_] = [(pos[0]+1, pos[1])]
                 if end[id_][0] - pos[0] > 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 0.5
                 else:
                      reward[id_] -= 0.5
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
                 if end[id_][1] - pos[1] < 0:
-                    reward[id_] += 1.5
+                    reward[id_] += 0.5
                 else:
                      reward[id_] -= 0.5
             if self.out_of_map(path[id_][0], self.size):
                 reward[id_] -= 20
                 done[id_] = True
         self.steps += 1
-        if self.steps > 200:
+        if self.steps > 80:
+            reward[id_] -= 10
             done[id_] = True
         self.start(path, None, False)
         if len(self.crash) > 0:
@@ -185,13 +194,51 @@ class Simulator:
         for id_ in self.robot.keys():
             state = self.get_state_map(id_, False)
             states.append(state)
+            reward -= -0.1*(abs(self.robot[id_][0]-end[id_][0])+abs(self.robot[id_][1]-end[id_][1]))
             if np.math.hypot(self.robot[id_][0]-end[id_][0], self.robot[id_][1]-end[id_][1])<1:
-                reward[id_] += 35
-                done = True
+                reward[id_] += 30
+                done[id_] = True
             # if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1 and np.math.hypot(self.target[id_][0]-self.target[id_][2], self.target[id_][1]-self.target[id_][3]) < 1:
             #     reward[id_] += 35
             #     done[id_] = True
         return reward, np.array(states), done, {}
+    
+    def step_test(self, action):
+        path = {}
+        done = [False for i in action]
+        states = []
+        end = {}
+        for id_, pos in self.robot.items():
+            pos2 = self.target[pos[2]]
+            end[id_] = (pos2[0], pos2[1])
+            if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
+                end[id_] = (pos2[2], pos2[3])
+            if action[id_] == 0:
+                path[id_] = [(pos[0], pos[1])]
+            elif action[id_] == 1:
+                path[id_] = [(pos[0], pos[1]+1)]
+            elif action[id_] == 2:
+                path[id_] = [(pos[0]-1, pos[1])]
+            elif action[id_] == 3:
+                path[id_] = [(pos[0]+1, pos[1])]
+            elif action[id_] == 4:
+                path[id_] = [(pos[0], pos[1]-1)]
+            if self.out_of_map(path[id_][0], self.size):
+                done[id_] = True
+        self.steps += 1
+        if self.steps > 200:
+            done[id_] = True
+        self.start(path, None, False)
+        if len(self.crash) > 0:
+            for i in self.crash:
+                done[i[0]] = True
+                done[i[1]] = True
+        for id_ in self.robot.keys():
+            state = self.get_state_map(id_, False)
+            states.append(state)
+            if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1 and np.math.hypot(self.target[id_][0]-self.target[id_][2], self.target[id_][1]-self.target[id_][3]) < 1:
+                done[id_] = True
+        return None, np.array(states), done, {}
     
     def reset(self):
         self.crash = []
@@ -279,13 +326,14 @@ class Simulator:
 
 
 if __name__ == "__main__":
-    # # random initialize
-    # env1 = Simulator((601,601,3),5)
+    # random initialize
+    # env1 = Simulator((601,601,3),8)
+    # env1.get_state_map(0, True)
 
-    # # given state
-    # static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
-    # env2 = Simulator((601,601,3),3,static_origin)
-    # env2.show()
+    # given state
+    static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
+    env2 = Simulator((601,601,3),3,static_origin)
+    env2.show()
     # state = env2.get_state_map(0, True)
     # # display
 
@@ -316,15 +364,15 @@ if __name__ == "__main__":
     #         break
     
     # check state map2
-    static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
+    # static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
     # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
     # action = [[1,1],[1,3],[1,1],[3,1],[1,0],[1,0]]
-    action = [[1,3],[4,3],[1,3],[4,1],[1,0],[4,0]]
-    env = Simulator((601,601,3),2,static_origin)
-    for i in action:
-        reward, states, done, _ = env.step(i)
-        print("reward:",reward)
-        if np.array(done).any():
-            print("done")
-            break
+    # action = [[1,3],[1,3],[1,3],[4,1],[1,0],[4,0]]
+    # env = Simulator((601,601,3),2,static_origin)
+    # for i in action:
+    #     reward, states, done, _ = env.step(i)
+    #     print("reward:",reward)
+    #     if np.array(done).any():
+    #         print("done")
+    #         break
 

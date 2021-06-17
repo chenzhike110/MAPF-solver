@@ -23,7 +23,10 @@ def select_action(action_value, explore_eps):
             action = np.argmax(action_value, axis=0)  
     else:
         try:
-            action = np.random.randint(0,5,(action_value.shape[0]))
+            if len(action_value) == 5 and len(action_value[0])!=5:
+                action = np.random.randint(0,5,(1))[0]
+            else:
+                action = np.random.randint(0,5,(action_value.shape[0]))
         except:
             action = int(np.random.randint(0,5,size=(1)))
     return action
