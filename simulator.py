@@ -80,17 +80,17 @@ class Simulator:
 
     def show(self, wait=True, save=None):
         frame = deepcopy(self.canvas)
-        font_scale = 2
-        font_size = 0.7
+        font_scale = 1
+        font_size = 0.4
         color = (255,255,255)
-        for id_, pos in self.robot.items():
-            size, _ = cv2.getTextSize('{0}'.format(pos[-1]),cv2.FONT_HERSHEY_COMPLEX,font_size,font_scale)
-            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//2, self.colours[id_], -1)
-            cv2.putText(frame,'{0}'.format(pos[-1]),tuple([pos[0]*scale-size[0]//2, pos[1]*scale+size[1]//2]),cv2.FONT_HERSHEY_COMPLEX,font_size,color,font_scale)
         for id_, pos in self.target.items():
             size, _ = cv2.getTextSize('{0}'.format(id_),cv2.FONT_HERSHEY_COMPLEX,font_size,font_scale)
             cv2.rectangle(frame, tuple(np.array(self.target[id_][:2])*scale-np.array([scale//3,scale//3])), tuple(np.array(self.target[id_][:2])*scale+np.array([scale//3,scale//3])), self.colours[id_+len(self.robot)],-1) 
             cv2.putText(frame,'{0}'.format(id_),tuple([self.target[id_][0]*scale-size[0]//2, self.target[id_][1]*scale+size[1]//2]),cv2.FONT_HERSHEY_COMPLEX,font_size,color,font_scale)
+        for id_, pos in self.robot.items():
+            size, _ = cv2.getTextSize('{0}'.format(pos[-1]),cv2.FONT_HERSHEY_COMPLEX,font_size,font_scale)
+            cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[id_], -1)
+            cv2.putText(frame,'{0}'.format(pos[-1]),tuple([pos[0]*scale-size[0]//2, pos[1]*scale+size[1]//2]),cv2.FONT_HERSHEY_COMPLEX,font_size,color,font_scale)
         
         cv2.imshow("Factory",frame)
         if wait:
@@ -141,7 +141,7 @@ class Simulator:
 
     def step(self, action):
         path = {}
-        reward = np.array([-1.0 for i in action])
+        reward = np.array([-0.5 for i in action])
         done = [False for i in action]
         states = []
         end = {}
@@ -152,38 +152,38 @@ class Simulator:
                 end[id_] = (pos2[2], pos2[3])
             if action[id_] == 0:
                 path[id_] = [(pos[0], pos[1])]
-                reward[id_] -= 0.5
+                reward[id_] -= 0.2
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
                 if end[id_][1] - pos[1] > 0:
-                    reward[id_] += 0.5
+                    reward[id_] += 0.2
                 else:
-                     reward[id_] -= 0.5
+                     reward[id_] -= 0.2
             elif action[id_] == 2:
                 path[id_] = [(pos[0]-1, pos[1])]
                 if end[id_][0] - pos[0] < 0:
-                    reward[id_] += 0.5
+                    reward[id_] += 0.2
                 else:
-                     reward[id_] -= 0.5
+                     reward[id_] -= 0.2
             elif action[id_] == 3:
                 path[id_] = [(pos[0]+1, pos[1])]
                 if end[id_][0] - pos[0] > 0:
-                    reward[id_] += 0.5
+                    reward[id_] += 0.2
                 else:
-                     reward[id_] -= 0.5
+                     reward[id_] -= 0.2
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
                 if end[id_][1] - pos[1] < 0:
-                    reward[id_] += 0.5
+                    reward[id_] += 0.2
                 else:
-                     reward[id_] -= 0.5
+                     reward[id_] -= 0.2
             if self.out_of_map(path[id_][0], self.size):
                 reward[id_] -= 20
                 done[id_] = True
+            if self.steps > 80:
+                reward[id_] -= 10
+                done[id_] = True
         self.steps += 1
-        if self.steps > 80:
-            reward[id_] -= 10
-            done[id_] = True
         self.start(path, None, False)
         if len(self.crash) > 0:
             for i in self.crash:
@@ -194,7 +194,7 @@ class Simulator:
         for id_ in self.robot.keys():
             state = self.get_state_map(id_, False)
             states.append(state)
-            reward -= -0.1*(abs(self.robot[id_][0]-end[id_][0])+abs(self.robot[id_][1]-end[id_][1]))
+            reward -= 0.025*(abs(self.robot[id_][0]-end[id_][0])+abs(self.robot[id_][1]-end[id_][1]))
             if np.math.hypot(self.robot[id_][0]-end[id_][0], self.robot[id_][1]-end[id_][1])<1:
                 reward[id_] += 30
                 done[id_] = True

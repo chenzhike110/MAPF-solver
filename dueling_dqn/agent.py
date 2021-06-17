@@ -98,6 +98,7 @@ class dqn_agent:
             action = [action]
             action.extend([0 for i in range(self.env.robot_num-1)])
             reward, obs_, done, _ = self.env.step(action)
+            print("get reward: ",reward)
 
             for i in range(len(obs)):
                 self.buffer.add(obs[i], action[i], reward[i], obs_[i], float(done[i]))
