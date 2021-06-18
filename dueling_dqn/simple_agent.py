@@ -130,21 +130,6 @@ class dqn_agent:
                         episode_reward.mean, td_loss))
                 torch.save(self.net.state_dict(), self.model_path + '/model'+str(td_loss)+'.pt')
 
-    def go(self):
-        obs = self.env.reset()
-        done = False
-        while not done:
-            with torch.no_grad():
-                obs_tensor = self._get_tensors(obs)
-                action_value = self.net(obs_tensor)
-            action = select_action(action_value, 0.1)
-            if self.env.robot_num == 1:
-                action = [action]
-            reward, obs_, done, _ = self.env.step_test(action)
-            obs = obs_
-            done = np.array(done).any()
-
-
     def load_dict(self, path):
         state_dict = torch.load(path)
         self.net.load_state_dict(state_dict)
