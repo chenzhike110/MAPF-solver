@@ -1,3 +1,4 @@
+from os import stat
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -42,6 +43,39 @@ class net(nn.Module):
     def forward(self, inputs):
         x = self.cnn_layer(inputs)
         # get the action value
+        action_fc = F.relu(self.action_fc(x))
+        action_value = self.action_value(action_fc)
+        # get the state value
+        state_value_fc = F.relu(self.state_value_fc(x))
+        state_value = self.state_value(state_value_fc)
+        # action value mean
+        action_value_mean = torch.mean(action_value, dim=1, keepdim=True)
+        action_value_center = action_value - action_value_mean
+        # Q = V + A
+        action_value_out = state_value + action_value_center
+        return action_value_out
+
+class simplenet(nn.Module):
+    def __init__(self, num_actions):
+        super(simplenet, self).__init__()
+        self.linear1 = nn.Linear(2+num_actions, 2+num_actions)
+        self.state_value_fc = nn.Linear(2+num_actions, 2+num_actions)
+        self.action_fc = nn.Linear(2+num_actions, 2+num_actions)
+        self.action_value = nn.Linear(2+num_actions, num_actions)
+        self.state_value = nn.Linear(2+num_actions, 1)
+        nn.init.normal_(self.linear1.weight, mean=0., std=0.1)
+        nn.init.constant_(self.linear1.bias, 0.)
+        nn.init.normal_(self.state_value_fc.weight, mean=0., std=0.1)
+        nn.init.constant_(self.state_value_fc.bias, 0.)
+        nn.init.normal_(self.action_fc.weight, mean=0., std=0.1)
+        nn.init.constant_(self.action_fc.bias, 0.)
+        nn.init.normal_(self.action_value.weight, mean=0., std=0.1)
+        nn.init.constant_(self.action_value.bias, 0.)
+        nn.init.normal_(self.state_value.weight, mean=0., std=0.1)
+        nn.init.constant_(self.state_value.bias, 0.)
+    
+    def forward(self, input):
+        x = self.linear1(input)
         action_fc = F.relu(self.action_fc(x))
         action_value = self.action_value(action_fc)
         # get the state value

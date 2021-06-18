@@ -1,8 +1,13 @@
 import numpy as np
 import random
-
+import torch.nn as nn
 from numpy.core.defchararray import index
 from numpy.core.fromnumeric import size
+
+def set_init(layers):
+    for layer in layers:
+        nn.init.normal_(layer.weight, mean=0., std=0.1)
+        nn.init.constant_(layer.bias, 0.)
 
 class linear_schedule:
     def __init__(self, total_timesteps, final_ratio, init_ratio=1.0):

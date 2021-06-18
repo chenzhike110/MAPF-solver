@@ -139,7 +139,7 @@ class Simulator:
             return True
         return False
 
-    def step(self, action):
+    def step(self, action, simple=False):
         path = {}
         reward = np.array([-0.3 for i in action])
         done = [False for i in action]
@@ -192,7 +192,10 @@ class Simulator:
                 done[i[0]] = True
                 done[i[1]] = True
         for id_ in self.robot.keys():
-            state = self.get_state_map(id_, False)
+            if simple == False:
+                state = self.get_state_map(id_, False)
+            else:
+                state = self.simple_state(id_, False)
             states.append(state)
             # reward -= 0.025*(abs(self.robot[id_][0]-end[id_][0])+abs(self.robot[id_][1]-end[id_][1]))
             if np.math.hypot(self.robot[id_][0]-end[id_][0], self.robot[id_][1]-end[id_][1])<1:
@@ -203,6 +206,36 @@ class Simulator:
             #     done[id_] = True
         return reward, np.array(states), done, {}
     
+    def simple_state(self, index, DEBUG=False):
+        me = self.robot[index]
+        state = np.zeros(7)
+        state[0] = (self.target[self.robot[index][2]][0] - self.robot[index][0])/(self.size[0]//scale+1)
+        state[1] = (self.target[self.robot[index][2]][1] - self.robot[index][1])/(self.size[1]//scale+1)
+        if me[0] == 1:
+            state[2] = 1
+        elif me[0] == self.size[0]:
+            state[3] = 1
+        elif me[1] == 1:
+            state[4] = 1
+        elif me[1] == self.size[1]:
+            state[5] = 1
+        
+        for id_, pos in self.robot.items():
+            if id_ == index:
+                continue
+            if np.math.hypot(self.robot[id_][0]-me[0], self.robot[id_][1]-me[1])<1.2:
+                if self.robot[id_][0]-me[0] > 0:
+                    state[2] = 1
+                elif self.robot[id_][0]-me[0] < 0:
+                    state[3] = 1
+                elif self.robot[id_][1]-me[1] > 0:
+                    state[4] = 1
+                elif self.robot[id_][1]-me[1] < 0:
+                    state[5] = 1
+                else:
+                    state[6] = 1
+        return state
+
     def step_test(self, action):
         path = {}
         done = [False for i in action]
@@ -240,7 +273,7 @@ class Simulator:
                 done[id_] = True
         return None, np.array(states), done, {}
     
-    def reset(self):
+    def reset(self, simple=False):
         self.crash = []
         self.canvas = np.ones(self.size, np.uint8)*255
         self.robot = {}
@@ -250,7 +283,10 @@ class Simulator:
         states = []
         self.generate_map(self.robot_num, self.size)
         for id_ in self.robot.keys():
-            state = self.get_state_map(id_)
+            if simple == True:
+                state = self.simple_state(id_)
+            else:
+                state = self.get_state_map(id_)
             self.robot_carry[id_] = False
             states.append(state)
         return np.array(states)
@@ -331,9 +367,9 @@ if __name__ == "__main__":
     # env1.get_state_map(0, True)
 
     # given state
-    static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
-    env2 = Simulator((601,601,3),3,static_origin)
-    env2.show()
+    # static_origin = [{0:(1,1,1),1:(2,2,-1),2:(3,3,-1)}, {0:(8,5,7,3),1:(10,8,9,9),2:(5,10,11,2)}]
+    # env2 = Simulator((601,601,3),3,static_origin)
+    # env2.show()
     # state = env2.get_state_map(0, True)
     # # display
 
@@ -364,15 +400,15 @@ if __name__ == "__main__":
     #         break
     
     # check state map2
-    # static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
-    # path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
-    # action = [[1,1],[1,3],[1,1],[3,1],[1,0],[1,0]]
-    # action = [[1,3],[1,3],[1,3],[4,1],[1,0],[4,0]]
-    # env = Simulator((601,601,3),2,static_origin)
-    # for i in action:
-    #     reward, states, done, _ = env.step(i)
-    #     print("reward:",reward)
-    #     if np.array(done).any():
-    #         print("done")
-    #         break
+    static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
+    path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
+    action = [[1,1],[1,3],[1,1],[3,1],[1,0],[1,0]]
+    action = [[1,3],[1,3],[1,0],[3,1],[1,0],[4,0]]
+    env = Simulator((601,601,3),2,static_origin)
+    for i in action:
+        reward, states, done, _ = env.step(i, True)
+        print("reward:",states)
+        if np.array(done).any():
+            print("done")
+            break
 
