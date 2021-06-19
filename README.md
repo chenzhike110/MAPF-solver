@@ -22,10 +22,13 @@
 
 - Stupid-avoid
 
-  ![stupid_avoid](./image/stupid_avoid.gif)
+  ![stupid_avoid](./image/stupid_avoid_final.gif)
 
 #### Learning method
 
 - A3C
 - Dueling Double DQN
 
+![single_DQN_avoid](./image/single_DQN_avoid.gif)
+
+![single_DQN_test](./image/Multi_DQN_final.gif)

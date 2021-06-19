@@ -1,6 +1,7 @@
 import numpy as np
 from torch import index_add
 from simulator import Simulator, scale
+from allocate import get_allocate_matrix
 
 
 def getrange(a, b):
@@ -109,9 +110,12 @@ def deal_with_conflict(last_pos, pos, targetpos, crash_idx):
 if __name__ == "__main__":
     robotnum = 8
     env = Simulator((601,601,3), robotnum)
+    robots, targets = env.information()
+    pairs = get_allocate_matrix(robots, targets)
+    env.update_pairs(pairs)
     start, target = env.information()
     path = {}
     for idx, pos in start.items():
-        path[idx] = generate_path(pos, target[idx])
+        path[idx] = generate_path(pos, target[pos[2]])
     path = check_path(path, target)
     env.start(path, "stupid_avoid.gif", True)

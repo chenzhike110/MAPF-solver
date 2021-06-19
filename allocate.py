@@ -1,3 +1,4 @@
+from os import minor
 import numpy as np
 from numpy import unravel_index
 from simulator import Simulator
@@ -16,6 +17,15 @@ def get_allocate_matrix(robots, targets):
 def find_pairs(matrix):
     pairs = []
     while len(pairs) < len(matrix):
+        if len(matrix) == 1:
+            return [(0,0)]
+        if (matrix == 0).all():
+            miss_line = np.array([True for i in range(matrix.shape[0])])
+            miss_row =  np.array([True for i in range(matrix.shape[0])])
+            for i in range(len(pairs)):
+                miss_line[pairs[i][0]] = False
+                miss_row[pairs[i][1]] = False
+            pairs.append((miss_line.argmax(), miss_row.argmax()))
         matrix = delete_longest(matrix)
         pairs_new, matrix = check(matrix)
         pairs.extend(pairs_new)
@@ -28,7 +38,6 @@ def delete_longest(matrix):
     return matrix
 
 def check(matrix):
-    print(matrix)
     pairs = []
     # checkline
     for i in range(len(matrix)):
@@ -44,8 +53,8 @@ def check(matrix):
             line = matrix[:,i].argmax()
             pairs.append((line, i))
             matrix[line, i] = 0
-            for i in range(len(matrix[line])):
-                matrix[line, i] = 0
+            for k in range(len(matrix[line])):
+                matrix[line, k] = 0
 
     return pairs, matrix
 

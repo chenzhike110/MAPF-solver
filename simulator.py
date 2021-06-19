@@ -1,4 +1,4 @@
-from os import stat
+from os import name, stat
 import cv2
 import numpy as np
 from copy import deepcopy
@@ -9,7 +9,7 @@ scale = 35
 
 class Simulator:
 
-    def __init__(self, size, robot_num, static=None):
+    def __init__(self, size, robot_num, static=None, name =''):
         """
         Initialize simulator multi agent path finding
         robot: {index:(x,y,carry_index)}
@@ -23,6 +23,7 @@ class Simulator:
         self.size = size
         self.robot_num = robot_num
         self.frames = []
+        self.name = name
         self.steps = 0
         if static != None:
             self.robot, self.target = static
@@ -32,6 +33,10 @@ class Simulator:
         # cv2.namedWindow("Factory")
         # cv2.resizeWindow('Factory', tuple(np.array(list(size)[:2])+np.array([500,200])))
     
+    def update_pairs(self, pairs):
+        for pair in pairs:
+            self.robot[pair[0]] = (self.robot[pair[0]][0], self.robot[pair[0]][1], pair[1])
+
     def generate_map(self, robot_num, size):
         """
         generate random map to increase the complexity
@@ -78,7 +83,7 @@ class Simulator:
         cv2.line(frame, tuple(point3), tuple(point4), color, thick)
 
 
-    def show(self, wait=True, save=None):
+    def show(self, wait=True):
         frame = deepcopy(self.canvas)
         font_scale = 1
         font_size = 0.4
@@ -92,13 +97,12 @@ class Simulator:
             cv2.circle(frame, tuple(np.array(pos)[:-1]*scale), scale//3, self.colours[id_], -1)
             cv2.putText(frame,'{0}'.format(pos[-1]),tuple([pos[0]*scale-size[0]//2, pos[1]*scale+size[1]//2]),cv2.FONT_HERSHEY_COMPLEX,font_size,color,font_scale)
         
-        cv2.imshow("Factory",frame)
+        cv2.imshow("Factory"+self.name,frame)
         if wait:
             cv2.waitKey(0)
         else:
             cv2.waitKey(100)
-        if save != None:
-            self.frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        self.frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     
     def get_state_map(self, index, show=False):
         state = np.zeros((self.size[0]//scale+1, self.size[1]//scale+1))
@@ -149,6 +153,7 @@ class Simulator:
             pos2 = self.target[pos[2]]
             end[id_] = (pos2[0], pos2[1])
             if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
+                self.robot_carry[id_] = True
                 end[id_] = (pos2[2], pos2[3])
             if action[id_] == 0:
                 path[id_] = [(pos[0], pos[1])]
@@ -206,72 +211,118 @@ class Simulator:
             #     done[id_] = True
         return reward, np.array(states), done, {}
     
-    def simple_state(self, index, DEBUG=False):
+    def simple_state(self, index, test=False):
         me = self.robot[index]
         state = np.zeros(7)
         state[0] = (self.target[self.robot[index][2]][0] - self.robot[index][0])/(self.size[0]//scale+1)
         state[1] = (self.target[self.robot[index][2]][1] - self.robot[index][1])/(self.size[1]//scale+1)
+        if test and self.robot_carry[index]==True:
+            state[0] = (self.target[self.robot[index][2]][2] - self.robot[index][0])/(self.size[0]//scale+1)
+            state[1] = (self.target[self.robot[index][2]][3] - self.robot[index][1])/(self.size[1]//scale+1)
         if me[0] == 1:
+            # left
             state[2] = 1
-        elif me[0] == self.size[0]:
+        elif me[0] == self.size[0]//scale-1:
+            # right
             state[3] = 1
-        elif me[1] == 1:
+        if me[1] == 1:
+            # up
             state[4] = 1
-        elif me[1] == self.size[1]:
+        elif me[1] == self.size[1]//scale-1:
+            # down
             state[5] = 1
+        if self.out_of_map(me, self.size):
+            state[6] = 1
         
         for id_, pos in self.robot.items():
             if id_ == index:
                 continue
             if np.math.hypot(self.robot[id_][0]-me[0], self.robot[id_][1]-me[1])<1.2:
-                if self.robot[id_][0]-me[0] > 0:
+                if self.robot[id_][0]-me[0] < 0:
                     state[2] = 1
-                elif self.robot[id_][0]-me[0] < 0:
+                elif self.robot[id_][0]-me[0] > 0:
                     state[3] = 1
-                elif self.robot[id_][1]-me[1] > 0:
-                    state[4] = 1
-                elif self.robot[id_][1]-me[1] < 0:
+                if self.robot[id_][1]-me[1] > 0:
                     state[5] = 1
-                else:
+                elif self.robot[id_][1]-me[1] < 0:
+                    state[4] = 1
+                if self.robot[id_][0]-me[0] == 0 and self.robot[id_][1]-me[1] == 0:
                     state[6] = 1
         return state
 
-    def step_test(self, action):
+    def step_test(self, action, simple=False, save_gif=None):
         path = {}
-        done = [False for i in action]
+        reward = np.array([-0.3 for i in range(self.robot_num)])
+        done = [False for i in range(self.robot_num)]
         states = []
         end = {}
         for id_, pos in self.robot.items():
             pos2 = self.target[pos[2]]
             end[id_] = (pos2[0], pos2[1])
+            if len(action) < id_+1:
+                action.append(0)
             if (pos[0]-pos2[0])**2 + (pos[1]-pos2[1])**2 < 1:
+                self.robot_carry[id_] = True
                 end[id_] = (pos2[2], pos2[3])
             if action[id_] == 0:
                 path[id_] = [(pos[0], pos[1])]
+                reward[id_] -= 0.2
             elif action[id_] == 1:
                 path[id_] = [(pos[0], pos[1]+1)]
+                if end[id_][1] - pos[1] > 0:
+                    reward[id_] += 0.4
+                else:
+                     reward[id_] -= 0.2
             elif action[id_] == 2:
                 path[id_] = [(pos[0]-1, pos[1])]
+                if end[id_][0] - pos[0] < 0:
+                    reward[id_] += 0.4
+                else:
+                     reward[id_] -= 0.2
             elif action[id_] == 3:
                 path[id_] = [(pos[0]+1, pos[1])]
+                if end[id_][0] - pos[0] > 0:
+                    reward[id_] += 0.4
+                else:
+                     reward[id_] -= 0.2
             elif action[id_] == 4:
                 path[id_] = [(pos[0], pos[1]-1)]
+                if end[id_][1] - pos[1] < 0:
+                    reward[id_] += 0.4
+                else:
+                     reward[id_] -= 0.2
             if self.out_of_map(path[id_][0], self.size):
+                reward[id_] -= 20
+                done[id_] = True
+            if self.steps > 80:
+                # reward[id_] -= 10
                 done[id_] = True
         self.steps += 1
-        if self.steps > 200:
-            done[id_] = True
         self.start(path, None, False)
         if len(self.crash) > 0:
             for i in self.crash:
+                reward[i[0]] -= 20
+                reward[i[1]] -= 20
                 done[i[0]] = True
                 done[i[1]] = True
         for id_ in self.robot.keys():
-            state = self.get_state_map(id_, False)
+            if simple == False:
+                state = self.get_state_map(id_, False)
+            else:
+                state = self.simple_state(id_, True)
             states.append(state)
-            if np.math.hypot(self.robot[id_][0]-self.target[id_][2], self.robot[id_][1]-self.target[id_][3]) < 1 and np.math.hypot(self.target[id_][0]-self.target[id_][2], self.target[id_][1]-self.target[id_][3]) < 1:
+            # reward -= 0.025*(abs(self.robot[id_][0]-end[id_][0])+abs(self.robot[id_][1]-end[id_][1]))
+            # if np.math.hypot(self.robot[id_][0]-end[id_][0], self.robot[id_][1]-end[id_][1])<1:
+            #     reward[id_] += 30
+            #     done[id_] = True
+            if np.math.hypot(self.robot[id_][0]-self.target[self.robot[id_][2]][2], self.robot[id_][1]-self.target[self.robot[id_][2]][3]) < 1 and np.math.hypot(self.target[id_][0]-self.target[id_][2], self.target[id_][1]-self.target[id_][3]) < 1:
+                reward[id_] += 35
                 done[id_] = True
-        return None, np.array(states), done, {}
+        if save_gif!=None:
+            with imageio.get_writer("./image/"+save_gif, mode="I") as writer:
+                for idx, frame in enumerate(self.frames):
+                    writer.append_data(frame)
+        return reward, np.array(states), done, {}
     
     def reset(self, simple=False):
         self.crash = []
@@ -281,6 +332,7 @@ class Simulator:
         self.target = {}
         self.steps = 0
         states = []
+        self.frames = []
         self.generate_map(self.robot_num, self.size)
         for id_ in self.robot.keys():
             if simple == True:
@@ -343,10 +395,10 @@ class Simulator:
                 if self.crash_check():
                     frame = np.ones(self.size, np.uint8)*255
                     cv2.putText(frame, "Crash", (self.size[0]//2-int(2.5*scale), self.size[1]//2), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 0, 255), 2)
-                    cv2.imshow("Factory",frame)
+                    cv2.imshow("Factory"+self.name,frame)
                     cv2.waitKey(1000)
                     break    
-                self.show(wait, save_gif)
+                self.show(wait)
                 i += 1
                 if i >= max([len(i) for i in path.values()]):
                     # print("over")
@@ -400,10 +452,10 @@ if __name__ == "__main__":
     #         break
     
     # check state map2
-    static_origin = [{0:(1,1,0),1:(1,3,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
+    static_origin = [{0:(1,1,0),1:(16,16,1)},{0:(1,4,2,6),1:(10,8,9,7)}]
     path = {0:[(1,2),(1,3),(1,4),(2,4),(2,5),(2,6)],1:[(1,4),(2,4),(2,5),(2,6)]}
-    action = [[1,1],[1,3],[1,1],[3,1],[1,0],[1,0]]
-    action = [[1,3],[1,3],[1,0],[3,1],[1,0],[4,0]]
+    action = [[0,1],[1,3],[1,1],[3,1],[1,0],[1,0]]
+    action = [[0,0],[3,0],[3,1],[3,1],[1,0],[4,0]]
     env = Simulator((601,601,3),2,static_origin)
     for i in action:
         reward, states, done, _ = env.step(i, True)
