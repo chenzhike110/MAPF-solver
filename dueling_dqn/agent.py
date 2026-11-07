@@ -130,7 +130,7 @@ class dqn_agent:
                 torch.save(self.net.state_dict(), self.model_path + '/model'+str(td_loss)+'.pt')
 
     def load_dict(self, path):
-        state_dict = torch.load(path)
+        state_dict = torch.load(path, weights_only=True)
         self.net.load_state_dict(state_dict)
         print("load successful")
     
